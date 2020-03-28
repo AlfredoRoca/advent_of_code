@@ -262,6 +262,10 @@ defmodule StoicometryTest do
     ])
   end
 
+  test "formula on file" do
+    assert Stoicometry.ores_for_one_fuel(File.read!("input.txt")) == 654_909
+  end
+
   # test "extracts the compound elements from a recipe" do
   #   recipe = """
   #     10 ORE => 10 A
