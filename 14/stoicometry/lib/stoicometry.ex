@@ -3,28 +3,15 @@ defmodule Stoicometry do
 
   def ores_for_one_fuel(recipe) do
     parsed_recipe = Stoicometry.get_parsed_recipe(recipe)
-    compound_elements = Stoicometry.compound_elements(parsed_recipe)
     base_elements = Stoicometry.base_elements(parsed_recipe)
-
-    made_of_base_elements =
-      Enum.flat_map(compound_elements, fn comp_element ->
-        IO.inspect("----------------------------")
-        {_element, %{formula: compound_composition, quantity: _quantity}} = comp_element
-        IO.inspect(compound_composition)
-
-        Enum.map(compound_composition, fn component ->
-          IO.inspect(component)
-          chemical = Map.get(component, :chemical)
-          IO.inspect(chemical)
-
-          Enum.filter(base_elements, &match?({^chemical, _}, &1))
-          |> IO.inspect()
-          |> Enum.any?()
-          |> IO.inspect()
-        end)
-      end)
-
-    # any_is_compount? = !Enum.all?(made_of_base_elements)
+    parsed_recipe
+    |> Stoicometry.decompose(%{chemical: "FUEL", quantity: 1})
+    |> Enum.map(fn %{chemical: chemical, quantity: quantity_needed} ->
+      {_base_name, %{formula: base_formula, quantity: base_quantity}} =
+      Enum.find(base_elements, fn {name, _formula} -> name == chemical end)
+      trunc(Float.ceil(quantity_needed / base_quantity)) * String.to_integer(List.first(base_formula).quantity)
+    end)
+    |> Enum.reduce(fn x, acc -> x + acc end)
   end
 
   def decompose(parsed_recipe, %{chemical: chemical, quantity: quantity_needed})
