@@ -71,18 +71,18 @@ defmodule Stoicometry do
     |> parse_recipe()
   end
 
-  def fuel(parsed_recipe) do
-    parsed_recipe
-    |> Enum.filter(&match?({"FUEL", _}, &1))
+  # def fuel(parsed_recipe) do
+  #   parsed_recipe
+  #   |> Enum.filter(&match?({"FUEL", _}, &1))
 
-    # [
-    #   {"FUEL",
-    #    %{
-    #      formula: [%{chemical: "A", quantity: "7"}, %{chemical: "E", quantity: "1"}],
-    #      quantity: 1
-    #    }}
-    # ]
-  end
+  #   # [
+  #   #   {"FUEL",
+  #   #    %{
+  #   #      formula: [%{chemical: "A", quantity: "7"}, %{chemical: "E", quantity: "1"}],
+  #   #      quantity: 1
+  #   #    }}
+  #   # ]
+  # end
 
   def get_formula_for(parsed_recipe, %{chemical: chemical, quantity: _quantity}) do
     # %{chemical: "C", quantity: "1"}
@@ -100,35 +100,35 @@ defmodule Stoicometry do
     {c_quantity, c_formula}
   end
 
-  def all_base_elements?(parsed_recipe) do
-    compound_elements = compound_elements(parsed_recipe)
+  # def all_base_elements?(parsed_recipe) do
+  #   compound_elements = compound_elements(parsed_recipe)
 
-    res =
-      Enum.flat_map(compound_elements, fn comp_element ->
-        # {"C",
-        #  %{
-        #    formula: [%{chemical: "A", quantity: "7"}, %{chemical: "B", quantity: "1"}],
-        #    quantity: 1
-        #  }}
-        {_element, %{formula: compound_composition, quantity: _quantity}} = comp_element
-        # "C"
-        # [%{chemical: "A", quantity: "7"}, %{chemical: "B", quantity: "1"}]
-        # "D"
-        # [%{chemical: "A", quantity: "7"}, %{chemical: "C", quantity: "1"}]
-        # "E"
-        # [%{chemical: "A", quantity: "7"}, %{chemical: "D", quantity: "1"}]
+  #   res =
+  #     Enum.flat_map(compound_elements, fn comp_element ->
+  #       # {"C",
+  #       #  %{
+  #       #    formula: [%{chemical: "A", quantity: "7"}, %{chemical: "B", quantity: "1"}],
+  #       #    quantity: 1
+  #       #  }}
+  #       {_element, %{formula: compound_composition, quantity: _quantity}} = comp_element
+  #       # "C"
+  #       # [%{chemical: "A", quantity: "7"}, %{chemical: "B", quantity: "1"}]
+  #       # "D"
+  #       # [%{chemical: "A", quantity: "7"}, %{chemical: "C", quantity: "1"}]
+  #       # "E"
+  #       # [%{chemical: "A", quantity: "7"}, %{chemical: "D", quantity: "1"}]
 
-        Enum.map(compound_composition, fn component ->
-          chemical = Map.get(component, :chemical)
+  #       Enum.map(compound_composition, fn component ->
+  #         chemical = Map.get(component, :chemical)
 
-          Enum.filter(base_elements(parsed_recipe), &match?({^chemical, _}, &1))
-          |> Enum.any?()
-        end)
-      end)
+  #         Enum.filter(base_elements(parsed_recipe), &match?({^chemical, _}, &1))
+  #         |> Enum.any?()
+  #       end)
+  #     end)
 
-    res
-    |> Enum.all?()
-  end
+  #   res
+  #   |> Enum.all?()
+  # end
 
   def base_elements(parsed_recipe) do
     parsed_recipe
@@ -140,26 +140,26 @@ defmodule Stoicometry do
     # ]
   end
 
-  def compound_elements(parsed_recipe) do
-    (parsed_recipe -- base_elements(parsed_recipe)) -- fuel(parsed_recipe)
-    # [
-    #   {"C",
-    #    %{
-    #      formula: [%{chemical: "A", quantity: "7"}, %{chemical: "B", quantity: "1"}],
-    #      quantity: 1
-    #    }},
-    #   {"D",
-    #    %{
-    #      formula: [%{chemical: "A", quantity: "7"}, %{chemical: "C", quantity: "1"}],
-    #      quantity: 1
-    #    }},
-    #   {"E",
-    #    %{
-    #      formula: [%{chemical: "A", quantity: "7"}, %{chemical: "D", quantity: "1"}],
-    #      quantity: 1
-    #    }}
-    # ]
-  end
+  # def compound_elements(parsed_recipe) do
+  #   (parsed_recipe -- base_elements(parsed_recipe)) -- fuel(parsed_recipe)
+  #   # [
+  #   #   {"C",
+  #   #    %{
+  #   #      formula: [%{chemical: "A", quantity: "7"}, %{chemical: "B", quantity: "1"}],
+  #   #      quantity: 1
+  #   #    }},
+  #   #   {"D",
+  #   #    %{
+  #   #      formula: [%{chemical: "A", quantity: "7"}, %{chemical: "C", quantity: "1"}],
+  #   #      quantity: 1
+  #   #    }},
+  #   #   {"E",
+  #   #    %{
+  #   #      formula: [%{chemical: "A", quantity: "7"}, %{chemical: "D", quantity: "1"}],
+  #   #      quantity: 1
+  #   #    }}
+  #   # ]
+  # end
 
   def parse_recipe(recipe) do
     # "  10 ORE => 10 A\n  1 ORE => 1 B\n  7 A, 1 B => 1 C\n"
