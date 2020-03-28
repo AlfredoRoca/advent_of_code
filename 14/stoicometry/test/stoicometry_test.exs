@@ -1,6 +1,7 @@
 defmodule StoicometryTest do
   use ExUnit.Case
   doctest Stoicometry
+  import Assertions
 
   test "formula 1" do
     recipe = """
@@ -61,7 +62,7 @@ defmodule StoicometryTest do
       176 ORE => 6 VJHF
     """
 
-    assert Stoicometry.ores_for_one_fuel(recipe) == 180697
+    assert Stoicometry.ores_for_one_fuel(recipe) == 180_697
   end
 
   test "formula 5" do
@@ -85,11 +86,11 @@ defmodule StoicometryTest do
       5 BHXH, 4 VRPVC => 5 LTCX
     """
 
-    assert Stoicometry.ores_for_one_fuel(recipe) == 2210736
+    assert Stoicometry.ores_for_one_fuel(recipe) == 2_210_736
   end
 
   # tests of internals
-  test "extracts the base elements from a recipe" do
+  test "formula 1: extracts the base elements from a recipe" do
     recipe = """
       10 ORE => 10 A
       1 ORE => 1 B
@@ -105,6 +106,87 @@ defmodule StoicometryTest do
              {"A", %{formula: [%{chemical: "ORE", quantity: "10"}], quantity: 10}},
              {"B", %{formula: [%{chemical: "ORE", quantity: "1"}], quantity: 1}}
            ]
+  end
+
+  test "formula 4: extracts the base elements from a recipe" do
+    recipe = """
+      2 VPVL, 7 FWMGM, 2 CXFTF, 11 MNCFX => 1 STKFG
+      17 NVRVD, 3 JNWZP => 8 VPVL
+      53 STKFG, 6 MNCFX, 46 VJHF, 81 HVMC, 68 CXFTF, 25 GNMV => 1 FUEL
+      22 VJHF, 37 MNCFX => 5 FWMGM
+      139 ORE => 4 NVRVD
+      144 ORE => 7 JNWZP
+      5 MNCFX, 7 RFSQX, 2 FWMGM, 2 VPVL, 19 CXFTF => 3 HVMC
+      5 VJHF, 7 MNCFX, 9 VPVL, 37 CXFTF => 6 GNMV
+      145 ORE => 6 MNCFX
+      1 NVRVD => 8 CXFTF
+      1 VJHF, 6 MNCFX => 4 RFSQX
+      176 ORE => 6 VJHF
+    """
+
+    parsed_recipe = Stoicometry.get_parsed_recipe(recipe)
+
+    assert Stoicometry.base_elements(parsed_recipe) == [
+             {"NVRVD", %{formula: [%{chemical: "ORE", quantity: "139"}], quantity: 4}},
+             {"JNWZP", %{formula: [%{chemical: "ORE", quantity: "144"}], quantity: 7}},
+             {"MNCFX", %{formula: [%{chemical: "ORE", quantity: "145"}], quantity: 6}},
+             {"VJHF", %{formula: [%{chemical: "ORE", quantity: "176"}], quantity: 6}}
+           ]
+  end
+
+  test "formula 1: decomposes compound elements into base elements" do
+    recipe = """
+      10 ORE => 10 A
+      1 ORE => 1 B
+      7 A, 1 B => 1 C
+      7 A, 1 C => 1 D
+      7 A, 1 D => 1 E
+      7 A, 1 E => 1 FUEL
+    """
+
+    parsed_recipe = Stoicometry.get_parsed_recipe(recipe)
+
+    assert Stoicometry.decompose(parsed_recipe, %{chemical: "C", quantity: 2}) == [
+             %{chemical: "A", quantity: 14},
+             %{chemical: "B", quantity: 2}
+           ]
+
+    assert Stoicometry.decompose(parsed_recipe, %{chemical: "D", quantity: 2}) == [
+             %{chemical: "A", quantity: 28},
+             %{chemical: "B", quantity: 2}
+           ]
+
+    assert Stoicometry.decompose(parsed_recipe, %{chemical: "FUEL", quantity: 1}) == [
+             %{chemical: "A", quantity: 28},
+             %{chemical: "B", quantity: 1}
+           ]
+  end
+
+  test "formula 4: decomposes compound elements into base elements" do
+    recipe = """
+      2 VPVL, 7 FWMGM, 2 CXFTF, 11 MNCFX => 1 STKFG
+      17 NVRVD, 3 JNWZP => 8 VPVL
+      53 STKFG, 6 MNCFX, 46 VJHF, 81 HVMC, 68 CXFTF, 25 GNMV => 1 FUEL
+      22 VJHF, 37 MNCFX => 5 FWMGM
+      139 ORE => 4 NVRVD
+      144 ORE => 7 JNWZP
+      5 MNCFX, 7 RFSQX, 2 FWMGM, 2 VPVL, 19 CXFTF => 3 HVMC
+      5 VJHF, 7 MNCFX, 9 VPVL, 37 CXFTF => 6 GNMV
+      145 ORE => 6 MNCFX
+      1 NVRVD => 8 CXFTF
+      1 VJHF, 6 MNCFX => 4 RFSQX
+      176 ORE => 6 VJHF
+    """
+
+    parsed_recipe = Stoicometry.get_parsed_recipe(recipe)
+
+    assert_lists_equal(
+      Stoicometry.decompose(parsed_recipe, %{chemical: "VPVL", quantity: 8}),
+      [
+        %{chemical: "NVRVD", quantity: 17},
+        %{chemical: "JNWZP", quantity: 3}
+      ]
+    )
   end
 
   # test "extracts the compound elements from a recipe" do
@@ -159,7 +241,7 @@ defmodule StoicometryTest do
   #          ]
   # end
 
-  test "determines if a chemical element is a base element" do
+  test "formula 1: determines if a chemical element is a base element" do
     recipe = """
       10 ORE => 10 A
       1 ORE => 1 B
@@ -204,46 +286,7 @@ defmodule StoicometryTest do
   #   assert Stoicometry.all_base_elements?(parsed_recipe) == true
   # end
 
-  test "decomposes compound elements into base elements" do
-    recipe = """
-      10 ORE => 10 A
-      1 ORE => 1 B
-      7 A, 1 B => 1 C
-      7 A, 1 C => 1 D
-      7 A, 1 D => 1 E
-      7 A, 1 E => 1 FUEL
-    """
-
-    parsed_recipe = Stoicometry.get_parsed_recipe(recipe)
-
-    assert Stoicometry.decompose(parsed_recipe, %{chemical: "C", quantity: 2}) == [
-             %{chemical: "A", quantity: 14},
-             %{chemical: "B", quantity: 2}
-           ]
-
-    assert Stoicometry.decompose(parsed_recipe, %{chemical: "D", quantity: 2}) == [
-             %{chemical: "A", quantity: 28},
-             %{chemical: "B", quantity: 2}
-           ]
-
-    assert Stoicometry.decompose(parsed_recipe, %{chemical: "FUEL", quantity: 1}) == [
-             %{chemical: "A", quantity: 28},
-             %{chemical: "B", quantity: 1}
-           ]
-  end
-
   test "reduces the results summing up the quantities" do
-    recipe = """
-      10 ORE => 10 A
-      1 ORE => 1 B
-      7 A, 1 B => 1 C
-      7 A, 1 C => 1 D
-      7 A, 1 D => 1 E
-      7 A, 1 E => 1 FUEL
-    """
-
-    parsed_recipe = Stoicometry.get_parsed_recipe(recipe)
-
     list_of_chemicals = [
       %{chemical: "A", quantity: 14},
       [%{chemical: "A", quantity: 14}, %{chemical: "B", quantity: 2}]

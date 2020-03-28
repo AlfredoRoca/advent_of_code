@@ -1,0 +1,3 @@
+%{
+  "assertions": {:hex, :assertions, "0.15.0", "de3af84b0639dd7bb6fd7c9aa239e705b4f00e1117ff45ad20e4061a5242318e", [:mix], [], "hexpm"},
+}
