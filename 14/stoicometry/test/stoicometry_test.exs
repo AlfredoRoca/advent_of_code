@@ -126,12 +126,12 @@ defmodule StoicometryTest do
 
     parsed_recipe = Stoicometry.get_parsed_recipe(recipe)
 
-    assert Stoicometry.base_elements(parsed_recipe) == [
-             {"NVRVD", %{formula: [%{chemical: "ORE", quantity: "139"}], quantity: 4}},
-             {"JNWZP", %{formula: [%{chemical: "ORE", quantity: "144"}], quantity: 7}},
-             {"MNCFX", %{formula: [%{chemical: "ORE", quantity: "145"}], quantity: 6}},
-             {"VJHF", %{formula: [%{chemical: "ORE", quantity: "176"}], quantity: 6}}
-           ]
+    assert_lists_equal(Stoicometry.base_elements(parsed_recipe), [
+      {"NVRVD", %{formula: [%{chemical: "ORE", quantity: "139"}], quantity: 4}},
+      {"JNWZP", %{formula: [%{chemical: "ORE", quantity: "144"}], quantity: 7}},
+      {"MNCFX", %{formula: [%{chemical: "ORE", quantity: "145"}], quantity: 6}},
+      {"VJHF", %{formula: [%{chemical: "ORE", quantity: "176"}], quantity: 6}}
+    ])
   end
 
   test "formula 1: decomposes compound elements into base elements" do
@@ -189,6 +189,79 @@ defmodule StoicometryTest do
     )
   end
 
+  test "formula 1: determines if a chemical element is a base element" do
+    recipe = """
+      10 ORE => 10 A
+      1 ORE => 1 B
+      7 A, 1 B => 1 C
+      7 A, 1 C => 1 D
+      7 A, 1 D => 1 E
+      7 A, 1 E => 1 FUEL
+    """
+
+    parsed_recipe = Stoicometry.get_parsed_recipe(recipe)
+    chemical = "A"
+    assert Stoicometry.chemical_is_base_element(parsed_recipe, chemical)
+
+    chemical = "E"
+    refute Stoicometry.chemical_is_base_element(parsed_recipe, chemical)
+  end
+
+  test "formula 4: determines if a chemical element is a base element" do
+    recipe = """
+      2 VPVL, 7 FWMGM, 2 CXFTF, 11 MNCFX => 1 STKFG
+      17 NVRVD, 3 JNWZP => 8 VPVL
+      53 STKFG, 6 MNCFX, 46 VJHF, 81 HVMC, 68 CXFTF, 25 GNMV => 1 FUEL
+      22 VJHF, 37 MNCFX => 5 FWMGM
+      139 ORE => 4 NVRVD
+      144 ORE => 7 JNWZP
+      5 MNCFX, 7 RFSQX, 2 FWMGM, 2 VPVL, 19 CXFTF => 3 HVMC
+      5 VJHF, 7 MNCFX, 9 VPVL, 37 CXFTF => 6 GNMV
+      145 ORE => 6 MNCFX
+      1 NVRVD => 8 CXFTF
+      1 VJHF, 6 MNCFX => 4 RFSQX
+      176 ORE => 6 VJHF
+    """
+
+    parsed_recipe = Stoicometry.get_parsed_recipe(recipe)
+    chemical = "MNCFX"
+    assert Stoicometry.chemical_is_base_element(parsed_recipe, chemical)
+
+    chemical = "CXFTF"
+    refute Stoicometry.chemical_is_base_element(parsed_recipe, chemical)
+  end
+
+  test "formula 1: reduces the results summing up the quantities" do
+    list_of_chemicals = [
+      %{chemical: "A", quantity: 14},
+      [%{chemical: "A", quantity: 14}, %{chemical: "B", quantity: 2}]
+    ]
+
+    assert Stoicometry.reduce_quantities(list_of_chemicals) == [
+             %{chemical: "A", quantity: 28},
+             %{chemical: "B", quantity: 2}
+           ]
+  end
+
+  test "formula 4: reduces the results summing up the quantities" do
+    list_of_chemicals = [
+      %{chemical: "VPVL", quantity: 14},
+      %{chemical: "RFSQX", quantity: 10},
+      [%{chemical: "VPVL", quantity: 8}, %{chemical: "VJHF", quantity: 2}],
+      [
+        %{chemical: "VJHF", quantity: 5},
+        %{chemical: "RFSQX", quantity: 2},
+        %{chemical: "VPVL", quantity: 5}
+      ]
+    ]
+
+    assert_lists_equal(Stoicometry.reduce_quantities(list_of_chemicals), [
+      %{chemical: "VPVL", quantity: 27},
+      %{chemical: "VJHF", quantity: 7},
+      %{chemical: "RFSQX", quantity: 12}
+    ])
+  end
+
   # test "extracts the compound elements from a recipe" do
   #   recipe = """
   #     10 ORE => 10 A
@@ -241,24 +314,6 @@ defmodule StoicometryTest do
   #          ]
   # end
 
-  test "formula 1: determines if a chemical element is a base element" do
-    recipe = """
-      10 ORE => 10 A
-      1 ORE => 1 B
-      7 A, 1 B => 1 C
-      7 A, 1 C => 1 D
-      7 A, 1 D => 1 E
-      7 A, 1 E => 1 FUEL
-    """
-
-    parsed_recipe = Stoicometry.get_parsed_recipe(recipe)
-    chemical = "A"
-    assert Stoicometry.chemical_is_base_element(parsed_recipe, chemical)
-
-    chemical = "E"
-    refute Stoicometry.chemical_is_base_element(parsed_recipe, chemical)
-  end
-
   # test "determines if all elements are base elements (false)" do
   #   recipe = """
   #     10 ORE => 10 A
@@ -285,16 +340,4 @@ defmodule StoicometryTest do
 
   #   assert Stoicometry.all_base_elements?(parsed_recipe) == true
   # end
-
-  test "reduces the results summing up the quantities" do
-    list_of_chemicals = [
-      %{chemical: "A", quantity: 14},
-      [%{chemical: "A", quantity: 14}, %{chemical: "B", quantity: 2}]
-    ]
-
-    assert Stoicometry.reduce_quantities(list_of_chemicals) == [
-             %{chemical: "A", quantity: 28},
-             %{chemical: "B", quantity: 2}
-           ]
-  end
 end
