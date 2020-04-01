@@ -17,14 +17,14 @@ defmodule RocketEquationTest do
 
   test "calculate fuel for example 3" do
     input = 1969
-    expected_value = 654
+    expected_value = 966
 
     assert RocketEquation.calculate_fuel(input) == expected_value
   end
 
   test "calculate fuel for example 4" do
     input = 100_756
-    expected_value = 33_583
+    expected_value = 50_346
 
     assert RocketEquation.calculate_fuel(input) == expected_value
   end
@@ -34,7 +34,7 @@ defmodule RocketEquationTest do
       File.read!("input.txt")
       |> String.split("\n", trim: true)
 
-    expected_value = 3_437_969
+    expected_value = 5_154_075
 
     assert RocketEquation.calculate_fuel(input) == expected_value
   end
