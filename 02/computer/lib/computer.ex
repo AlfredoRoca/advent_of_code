@@ -1,11 +1,48 @@
 defmodule Computer do
   def solution_to_program_1202 do
-    p1202 =
+    find_solution_for_program(12, 2)
+  end
+
+  def find_inputs_to_get_number(number) do
+    [noun, verb] = find_inputs_to_get({:run, [number, 0]})
+
+    100 * noun + verb
+  end
+
+  def find_inputs_to_get({command, data}) do
+    case command do
+      :run ->
+        [number, noun] = data
+        sol = find_solution_for_program(noun, 0)
+
+        next_command =
+          case sol - number do
+            n when n < 0 ->
+              {:run, [number, noun + 1]}
+
+            0 ->
+              {:solution, [noun, 0]}
+
+            n when n > 0 ->
+              prev_sol = find_solution_for_program(noun - 1, 0)
+              {:solution, [noun - 1, number - prev_sol]}
+          end
+
+        find_inputs_to_get(next_command)
+
+      :solution ->
+        data
+    end
+  end
+
+  def find_solution_for_program(noun, verb) do
+    instructions =
       File.read!("program.txt")
       |> String.split(",", trim: true)
       |> Enum.map(&String.to_integer/1)
+      |> Enum.slice(3..-1)
 
-    ([1, 12, 2] ++ Enum.slice(p1202, 3..-1))
+    ([1, noun, verb] ++ instructions)
     |> run()
     |> String.split(",")
     |> List.first()

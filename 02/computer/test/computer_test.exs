@@ -46,4 +46,8 @@ defmodule ComputerTest do
   test "runs program 1202" do
     assert Computer.solution_to_program_1202() == 4_330_636
   end
+
+  test "find solution" do
+    assert Computer.find_inputs_to_get_number(19_690_720) == 6086
+  end
 end
