@@ -1,6 +1,36 @@
 defmodule CrossedWiresTest do
   use ExUnit.Case
 
+  test "combined_steps_to_intersection for paths 1" do
+    [path1, path2] = ["R8,U5,L5,D3", "U7,R6,D4,L4"]
+    route1 = CrossedWires.get_points(path1, {0, 0})
+    route2 = CrossedWires.get_points(path2, {0, 0})
+    intersection = {6, 5}
+    distance = 30
+
+    assert CrossedWires.combined_steps_to_intersection(intersection, route1, route2) == distance
+  end
+
+  test "combined_steps_to_intersection for paths c1" do
+    [path1, path2] = ["R1050,D250,L250,U1050", "U500,R1051"]
+    route1 = CrossedWires.get_points(path1, {0, 0})
+    route2 = CrossedWires.get_points(path2, {0, 0})
+    intersection = {800, 500}
+    distance = 2300 + 1300
+
+    assert CrossedWires.combined_steps_to_intersection(intersection, route1, route2) == distance
+  end
+
+  test "combined_steps_to_intersection for paths c2" do
+    [path1, path2] = ["R10,D5,L3,U20", "U1,R20"]
+    route1 = CrossedWires.get_points(path1, {0, 0})
+    route2 = CrossedWires.get_points(path2, {0, 0})
+    intersection = {7, 1}
+    distance = 8 + 24
+
+    assert CrossedWires.combined_steps_to_intersection(intersection, route1, route2) == distance
+  end
+
   test "the nearest for paths 1" do
     distance = 6
     paths = ["R8,U5,L5,D3", "U7,R6,D4,L4"]
@@ -73,8 +103,7 @@ defmodule CrossedWiresTest do
       File.read!("paths.txt")
       |> String.split("\n", trim: true)
 
-    # 1st attempt not correct -> 27326
-    min_combined_steps = 0
+    min_combined_steps = 27330
 
     assert CrossedWires.min_combined_steps(paths) == min_combined_steps
   end

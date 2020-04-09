@@ -33,7 +33,7 @@ defmodule CrossedWires do
       end)
 
     List.flatten(route)
-    |> Enum.uniq()
+    |> Enum.dedup()
     |> Enum.reject(fn point -> point == {x0, y0} end)
   end
 
