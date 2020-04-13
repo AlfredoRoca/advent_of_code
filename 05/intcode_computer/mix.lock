@@ -1,0 +1,4 @@
+%{
+  "meck": {:hex, :meck, "0.8.13", "ffedb39f99b0b99703b8601c6f17c7f76313ee12de6b646e671e3188401f7866", [:rebar3], [], "hexpm"},
+  "mock": {:hex, :mock, "0.3.4", "c5862eb3b8c64237f45f586cf00c9d892ba07bb48305a43319d428ce3c2897dd", [:mix], [{:meck, "~> 0.8.13", [hex: :meck, repo: "hexpm", optional: false]}], "hexpm"},
+}
