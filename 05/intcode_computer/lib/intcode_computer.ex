@@ -14,6 +14,24 @@ defmodule IntcodeComputer do
     100 * noun + verb
   end
 
+  def run(program) when is_list(program) do
+    {result, data, exit_code} = run_step(program, 0)
+
+    case result do
+      :halt -> {:halt, data |> Enum.join(","), exit_code}
+    end
+  end
+
+  def run(program) when is_binary(program) do
+    program
+    |> String.split("\n", trim: true)
+    |> Enum.join(",")
+    |> String.replace(",,", ",")
+    |> String.split(",", trim: true)
+    |> Enum.map(&String.to_integer/1)
+    |> run()
+  end
+
   defp find_inputs_to_get({command, data}) do
     case command do
       :run ->
@@ -55,24 +73,6 @@ defmodule IntcodeComputer do
     |> String.split(",")
     |> List.first()
     |> String.to_integer()
-  end
-
-  def run(program) when is_list(program) do
-    {result, data, exit_code} = run_step(program, 0)
-
-    case result do
-      :halt -> {:halt, data |> Enum.join(","), exit_code}
-    end
-  end
-
-  def run(program) when is_binary(program) do
-    program
-    |> String.split("\n", trim: true)
-    |> Enum.join(",")
-    |> String.replace(",,", ",")
-    |> String.split(",", trim: true)
-    |> Enum.map(&String.to_integer/1)
-    |> run()
   end
 
   defp run_step(prog, index, exit_code \\ 0) do
