@@ -4,10 +4,6 @@ defmodule IntcodeComputer do
   @position_mode "0"
   @immediate_mode "1"
 
-  def run_diagnostic_program(program) do
-    run(program)
-  end
-
   def solution_to_program_1202 do
     find_solution_for_program(12, 2)
   end
@@ -18,7 +14,7 @@ defmodule IntcodeComputer do
     100 * noun + verb
   end
 
-  def find_inputs_to_get({command, data}) do
+  defp find_inputs_to_get({command, data}) do
     case command do
       :run ->
         [number, noun] = data
@@ -44,7 +40,7 @@ defmodule IntcodeComputer do
     end
   end
 
-  def find_solution_for_program(noun, verb) do
+  defp find_solution_for_program(noun, verb) do
     instructions =
       File.read!("program.txt")
       |> String.split(",", trim: true)
@@ -79,7 +75,7 @@ defmodule IntcodeComputer do
     |> run()
   end
 
-  def run_step(prog, index, exit_code \\ 0) do
+  defp run_step(prog, index, exit_code \\ 0) do
     instruction = Enum.fetch!(prog, index)
     opcode = get_opcode_from_instruction(instruction)
 
@@ -108,7 +104,7 @@ defmodule IntcodeComputer do
     end
   end
 
-  def execute_opcode_for_operations(prog, index) do
+  defp execute_opcode_for_operations(prog, index) do
     {opcode, value1, value2, param3} = get_instruction_data(prog, index)
 
     operation =
@@ -129,7 +125,7 @@ defmodule IntcodeComputer do
     {insert_value_into_prog_at_position(prog, param3, operation), index + 4}
   end
 
-  def execute_opcode_for_external_input(prog, index) do
+  defp execute_opcode_for_external_input(prog, index) do
     # returns the new prog and the next position in the prog
     input =
       IO.gets("Introduce integer: ")
@@ -141,7 +137,7 @@ defmodule IntcodeComputer do
     {insert_value_into_prog_at_position(prog, target, input), index + 2}
   end
 
-  def execute_opcode_for_external_output(instruction, prog, index) do
+  defp execute_opcode_for_external_output(instruction, prog, index) do
     {mode_param1, _mode_param2} =
       instruction
       |> get_modes_from_instruction()
@@ -204,12 +200,12 @@ defmodule IntcodeComputer do
     pos
   end
 
-  def insert_value_into_prog_at_position(prog, pos, value) when pos == 0 do
+  defp insert_value_into_prog_at_position(prog, pos, value) when pos == 0 do
     # insert at the begining
     [value] ++ Enum.slice(prog, 1..-1)
   end
 
-  def insert_value_into_prog_at_position(prog, pos, value) when pos != 0 do
+  defp insert_value_into_prog_at_position(prog, pos, value) when pos != 0 do
     # insert in between
     Enum.slice(prog, 0..(pos - 1)) ++ [value] ++ Enum.slice(prog, (pos + 1)..-1)
   end
