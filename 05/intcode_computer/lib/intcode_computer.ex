@@ -71,6 +71,9 @@ defmodule IntcodeComputer do
 
   def run(program) when is_binary(program) do
     program
+    |> String.split("\n", trim: true)
+    |> Enum.join(",")
+    |> String.replace(",,", ",")
     |> String.split(",", trim: true)
     |> Enum.map(&String.to_integer/1)
     |> run()
@@ -81,16 +84,20 @@ defmodule IntcodeComputer do
     opcode = get_opcode_from_instruction(instruction)
 
     case opcode do
-      n when n in [1, 2] ->
-        {prog, index} = execute_opcode_for_aritmethics(instruction, prog, index)
+      n when n in [1, 2, 7, 8] ->
+        {prog, index} = execute_opcode_for_operations(prog, index)
         run_step(prog, index)
 
       3 ->
-        {prog, index} = execute_opcode_for_external_input(instruction, prog, index)
+        {prog, index} = execute_opcode_for_external_input(prog, index)
         run_step(prog, index)
 
       4 ->
         {prog, index, exit_code} = execute_opcode_for_external_output(instruction, prog, index)
+        run_step(prog, index, exit_code)
+
+      n when n in [5, 6] ->
+        {prog, index} = execute_opcode_for_jump(prog, index)
         run_step(prog, index, exit_code)
 
       99 ->
@@ -101,7 +108,28 @@ defmodule IntcodeComputer do
     end
   end
 
-  def execute_opcode_for_external_input(_instruction, prog, index) do
+  def execute_opcode_for_operations(prog, index) do
+    {opcode, value1, value2, param3} = get_instruction_data(prog, index)
+
+    operation =
+      case opcode do
+        1 ->
+          value1 + value2
+
+        2 ->
+          value1 * value2
+
+        7 ->
+          if value1 < value2, do: 1, else: 0
+
+        8 ->
+          if value1 == value2, do: 1, else: 0
+      end
+
+    {insert_value_into_prog_at_position(prog, param3, operation), index + 4}
+  end
+
+  def execute_opcode_for_external_input(prog, index) do
     # returns the new prog and the next position in the prog
     input =
       IO.gets("Introduce integer: ")
@@ -109,19 +137,38 @@ defmodule IntcodeComputer do
       |> String.to_integer()
 
     target = Enum.fetch!(prog, index + 1)
+
     {insert_value_into_prog_at_position(prog, target, input), index + 2}
   end
 
-  def execute_opcode_for_external_output(_instruction, prog, index) do
-    # returns the prog, the next position in the prog and the value output
-    target = Enum.fetch!(prog, index + 1)
-    exit_code = Enum.fetch!(prog, target)
-    Logger.info("Output exit_code: #{exit_code}")
+  def execute_opcode_for_external_output(instruction, prog, index) do
+    {mode_param1, _mode_param2} =
+      instruction
+      |> get_modes_from_instruction()
+
+    source = Enum.fetch!(prog, index + 1)
+    exit_code = fetch_value(prog, source, mode_param1)
+
     {prog, index + 2, exit_code}
   end
 
-  def execute_opcode_for_aritmethics(instruction, prog, index) do
-    # returns the new prog and the next position in the prog
+  def execute_opcode_for_jump(prog, index) do
+    {opcode, value1, value2, _param3} = get_instruction_data(prog, index)
+
+    new_index =
+      case opcode do
+        # jump-if-true
+        5 -> if value1 != 0, do: value2, else: index + 3
+        # jump-if-false
+        6 -> if value1 == 0, do: value2, else: index + 3
+      end
+
+    {prog, new_index}
+  end
+
+  defp get_instruction_data(prog, index) do
+    [instruction, param1, param2, param3] = Enum.slice(prog, index..(index + 3))
+
     opcode =
       instruction
       |> get_opcode_from_instruction()
@@ -130,18 +177,10 @@ defmodule IntcodeComputer do
       instruction
       |> get_modes_from_instruction()
 
-    [_pos0, pos1, pos2, pos3] = Enum.slice(prog, index..(index + 3))
+    value1 = fetch_value(prog, param1, mode_param1)
+    value2 = fetch_value(prog, param2, mode_param2)
 
-    value1 = fetch_value(prog, pos1, mode_param1)
-    value2 = fetch_value(prog, pos2, mode_param2)
-
-    operation =
-      case opcode do
-        1 -> value1 + value2
-        2 -> value1 * value2
-      end
-
-    {insert_value_into_prog_at_position(prog, pos3, operation), index + 4}
+    {opcode, value1, value2, param3}
   end
 
   defp get_opcode_from_instruction(instruction) do
