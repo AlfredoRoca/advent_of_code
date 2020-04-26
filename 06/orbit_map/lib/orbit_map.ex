@@ -146,14 +146,11 @@ defmodule OrbitMap do
   def create_path_table() do
     try do
       :ets.delete(:path)
-      :ets.delete(:total_distance)
     rescue
       _e -> nil
     end
 
     :ets.new(:path, [:named_table, :set, :protected])
-    :ets.new(:total_distance, [:named_table, :set, :protected])
-    :ets.insert(:total_distance, {"total", 0, self()})
   end
 
   def parse_map(map) do
