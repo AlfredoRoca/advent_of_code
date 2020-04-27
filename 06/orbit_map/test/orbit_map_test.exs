@@ -1,7 +1,40 @@
 defmodule OrbitMapTest do
   use ExUnit.Case
-  doctest OrbitMap
+  # doctest OrbitMap
 
+  @tag t: true
+  test "calculate transfer sample 1" do
+    map = """
+    COM)B
+    B)C
+    C)D
+    D)E
+    E)F
+    B)G
+    G)H
+    D)I
+    E)J
+    J)K
+    K)L
+    K)YOU
+    I)SAN
+    """
+
+    assert OrbitMap.calculate_transfers(map, "YOU", "SAN") == 4
+  end
+
+  @tag t: true
+  test "calculate transfer sample file" do
+    map = File.read!("map_data_input.txt")
+
+    assert OrbitMap.calculate_transfers(map, "YOU", "SAN") == 466
+  end
+
+  #
+  #
+  # tests for part 1
+  #
+  #
   test "calculates orbits checksum for sample map 1" do
     map = """
     COM)B
