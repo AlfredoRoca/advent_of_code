@@ -1,5 +1,6 @@
 defmodule OrbitMap do
   @infinite 999_999_999
+  alias Zippy.ZForest, as: Z
 
   defmodule Planet do
     defstruct name: "", orbits: 0, inner: nil, outers: []
@@ -22,18 +23,19 @@ defmodule OrbitMap do
   https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm
   """
   def calculate_transfers(map, origin, destination) do
-    create_planetary_system()
+    graph = create_planetary_system()
 
-    map
-    |> prepare_data()
-    |> parse_map()
+    graph =
+      map
+      |> prepare_data()
+      |> parse_map(graph)
 
-    create_path_table()
+    IO.inspect(Z.value(graph))
+    graph
+    # populate_vertex_set_q(graph, origin)
+    # |> travers_vertex_set_q_until_destination(destination)
 
-    populate_vertex_set_q(origin)
-    |> travers_vertex_set_q_until_destination(destination)
-
-    get_total_distance_to(destination)
+    # get_total_distance_to(destination)
   end
 
   @doc """
@@ -48,9 +50,7 @@ defmodule OrbitMap do
   8          add v to Q
   10      dist[source] ← 0
   """
-  def populate_vertex_set_q(origin) do
-    graph = get_graph()
-
+  def populate_vertex_set_q(graph, origin) do
     Enum.map(graph, fn {_, %Planet{inner: inner, name: name, orbits: _orbits, outers: outers}, _} ->
       distance = if name == origin, do: 0, else: @infinite
 
@@ -139,42 +139,35 @@ defmodule OrbitMap do
     )
   end
 
-  def get_graph() do
-    :ets.tab2list(:system)
+  def parse_map(map, graph) do
+    start = "YOU"
+
+    graph =
+      parse_inner(map, start, graph)
+      |> List.first()
   end
 
-  def create_path_table() do
-    try do
-      :ets.delete(:path)
-    rescue
-      _e -> nil
-    end
-
-    :ets.new(:path, [:named_table, :set, :protected])
-  end
-
-  def parse_map(map) do
-    start = "COM"
-    parse_inner(map, start)
-  end
-
-  def parse_inner(map, inner) do
+  def parse_inner(map, inner, graph) do
     outers =
       map
       |> search_outers_in_map(inner)
 
-    outers
-    |> Enum.map(fn outer ->
-      inner_planet = get_planet_in_system(inner)
+    case outers do
+      [] ->
+        graph
+        |> Z.up()
 
-      update_planet_in_system(inner, inner_planet.orbits, inner_planet.inner, [
-        outer | inner_planet.outers
-      ])
+      _ ->
+        graph = graph |> Z.down()
 
-      _outer_planet = get_or_put_planet_in_system(outer)
-      update_planet_in_system(outer, 1 + inner_planet.orbits, inner, [])
-      parse_inner(map, outer)
-    end)
+        graph =
+          outers
+          |> Enum.map(fn outer ->
+            graph = graph |> Z.insert(outer)
+            graph = parse_inner(map, outer, graph)
+          end)
+          |> List.flatten()
+    end
   end
 
   @doc """
@@ -269,14 +262,7 @@ defmodule OrbitMap do
   end
 
   def create_planetary_system() do
-    try do
-      :ets.delete(:system)
-    rescue
-      _e -> nil
-    end
-
-    :ets.new(:system, [:named_table, :set, :protected])
-    put_planet_in_system("COM")
+    Z.root("COM")
   end
 
   def get_or_put_planet_in_system(name) do

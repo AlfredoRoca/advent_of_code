@@ -24,6 +24,22 @@
         "test/**/test_helper.exs",
         "test/**/*_test.exs"
       ]
+    },
+    {
+      "type": "mix_task",
+      "name": "mix test only t1",
+      "request": "launch",
+      "task": "test",
+      "taskArgs": [
+        "--only",
+        "t1"
+      ],
+      "startApps": true,
+      "projectDir": "${workspaceRoot}",
+      "requireFiles": [
+        "test/**/test_helper.exs",
+        "test/**/*_test.exs"
+      ]
     }
   ]
 }

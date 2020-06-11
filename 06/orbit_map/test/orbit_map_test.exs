@@ -2,7 +2,7 @@ defmodule OrbitMapTest do
   use ExUnit.Case
   # doctest OrbitMap
 
-  @tag t: true
+  @tag t1: true
   test "calculate transfer sample 1" do
     map = """
     COM)B
