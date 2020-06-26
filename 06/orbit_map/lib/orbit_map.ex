@@ -58,12 +58,19 @@ defmodule OrbitMap do
 
   @doc """
   Returns the list of planets with their distance to COM
+  Starting from the inner planet (COM), it gets its outers and sums 1 to them
+  It continues with each of its outers recursively
 
   ## Parameters:
 
   - the list of planets
   - the map info
   - the starting point
+
+  ## Examples:
+
+  iex> OrbitMap.explore_map(["COM", "B", "C"], ["COM)B", "B)C"],%{planet: "COM", level: 0})
+  [%{level: 1, planet: "B"}, %{level: 2, planet: "C"}]
   """
   def explore_map(
         list_of_planets,
@@ -72,12 +79,14 @@ defmodule OrbitMap do
       ) do
     search_outers_in_map(map, inner)
     |> Enum.flat_map(fn planet ->
+      planet_with_level = %{planet: planet, level: level + 1}
+
       [
-        %{planet: planet, level: level + 1}
+        planet_with_level
         | OrbitMap.explore_map(
             list_of_planets,
             map,
-            %{planet: planet, level: level + 1}
+            planet_with_level
           )
       ]
     end)
@@ -92,7 +101,7 @@ defmodule OrbitMap do
 
   ## Examples
 
-  iex> OrbitMap.prepare_data("COM)B\nB)C\nC)D")
+  iex> OrbitMap.prepare_data("COM)B\\nB)C\\nC)D")
   ["COM)B", "B)C", "C)D"]
   """
   def prepare_data(map) when is_binary(map) do
@@ -122,8 +131,8 @@ defmodule OrbitMap do
 
   ## Examples
 
-  iex> OrbitMap.search_inner_in_map(OrbitMap.prepare_data("COM)B\nB)C\nC)D"), "B")
-  COM
+  iex> OrbitMap.search_inner_in_map(OrbitMap.prepare_data("COM)B\\nB)C\\nC)D"), "B")
+  "COM"
   """
   def search_inner_in_map(map, name) do
     map

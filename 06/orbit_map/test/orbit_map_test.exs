@@ -1,6 +1,6 @@
 defmodule OrbitMapTest do
   use ExUnit.Case
-  # doctest OrbitMap
+  doctest OrbitMap
 
   @tag t: true
   test "calculate transfer sample 1" do
