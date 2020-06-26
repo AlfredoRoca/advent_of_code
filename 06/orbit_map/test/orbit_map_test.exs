@@ -53,7 +53,6 @@ defmodule OrbitMapTest do
     assert OrbitMap.calculate_map_checksum(map) == 42
   end
 
-  @tag t: true
   test "calculates orbits checksum for sample map 1 disordered" do
     map = """
     C)D
