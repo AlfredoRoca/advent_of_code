@@ -2,8 +2,33 @@
 defmodule IntcodeComputer do
   require Logger
 
+  defmodule Lista do
+    def permutations([]), do: [[]]
+
+    def permutations(list) do
+      for(elem <- list, rest <- permutations(list -- [elem]), do: [elem | rest])
+    end
+  end
+
   @position_mode "0"
   @immediate_mode "1"
+
+  def find_highest_amplifiers_output_signal(phase_settings_list, program) do
+    Enum.map(Lista.permutations(phase_settings_list), fn phase_sequence ->
+      get_amplifiers_output(phase_sequence, program)
+    end)
+    |> Enum.max()
+  end
+
+  def get_amplifiers_output(phase_sequence, program) do
+    {_, exit_code} =
+      Enum.map_reduce(phase_sequence, 0, fn x, exit_code ->
+        {_result, _program, exit_code} = run(program, [x, exit_code])
+        {x, exit_code}
+      end)
+
+    exit_code
+  end
 
   def solution_to_program_1202 do
     find_solution_for_program(12, 2)

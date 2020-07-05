@@ -2,13 +2,18 @@
 
 https://adventofcode.com/2019/day/7
 
-## Run the tests to get the answers
+# What is the highest signal that can be sent to the thrusters?
 
-What is the highest signal that can be sent to the thrusters?
+## execute the following in the iex console  `iex -S mix`
 
-    mix test --only final
+    program = File.read!("puzzle_input.txt")
+    phase_settings = [0, 1, 2, 3, 4]
+    exit_code = IntcodeComputer.find_highest_amplifiers_output_signal(phase_settings, program)
+    => 116_680
 
-=> 116_680
+
+The test tagged `final` has the answer too.
+
 
 ## Description
 
