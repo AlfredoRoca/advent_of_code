@@ -8,7 +8,7 @@ https://adventofcode.com/2019/day/7
 
     program = File.read!("puzzle_input.txt")
     phase_settings = [0, 1, 2, 3, 4]
-    exit_code = IntcodeComputer.find_highest_amplifiers_output_signal(phase_settings, program)
+    exit_code = AmplificationCircuit.find_highest_amplifiers_output_signal(phase_settings, program)
     => 116_680
 
 

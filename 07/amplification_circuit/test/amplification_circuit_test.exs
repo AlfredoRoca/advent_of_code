@@ -7,7 +7,7 @@ defmodule AmplificationCircuitTest do
     phase_sequence = [4, 3, 2, 1, 0]
     expected_code = 43210
 
-    exit_code = IntcodeComputer.get_amplifiers_output(phase_sequence, program)
+    exit_code = AmplificationCircuit.get_amplifiers_output(phase_sequence, program)
 
     assert exit_code == expected_code
   end
@@ -17,7 +17,7 @@ defmodule AmplificationCircuitTest do
     phase_sequence = [0, 1, 2, 3, 4]
     expected_code = 54321
 
-    exit_code = IntcodeComputer.get_amplifiers_output(phase_sequence, program)
+    exit_code = AmplificationCircuit.get_amplifiers_output(phase_sequence, program)
 
     assert exit_code == expected_code
   end
@@ -29,7 +29,7 @@ defmodule AmplificationCircuitTest do
     phase_sequence = [1, 0, 4, 3, 2]
     expected_code = 65210
 
-    exit_code = IntcodeComputer.get_amplifiers_output(phase_sequence, program)
+    exit_code = AmplificationCircuit.get_amplifiers_output(phase_sequence, program)
 
     assert exit_code == expected_code
   end
@@ -40,7 +40,8 @@ defmodule AmplificationCircuitTest do
     phase_settings = [0, 1, 2, 3, 4]
     expected_code = 116_680
 
-    exit_code = IntcodeComputer.find_highest_amplifiers_output_signal(phase_settings, program)
+    exit_code =
+      AmplificationCircuit.find_highest_amplifiers_output_signal(phase_settings, program)
 
     assert exit_code == expected_code
   end
