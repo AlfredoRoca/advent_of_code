@@ -45,4 +45,11 @@ defmodule AmplificationCircuitTest do
 
     assert exit_code == expected_code
   end
+
+  test "Lista.permutation" do
+    items = [0, 1, 2]
+    permutations = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]]
+
+    assert AmplificationCircuit.Lista.permutations(items) == permutations
+  end
 end
