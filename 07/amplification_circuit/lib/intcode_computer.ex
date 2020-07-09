@@ -15,25 +15,25 @@ defmodule IntcodeComputer do
     100 * noun + verb
   end
 
-  def run(program, ext_inputs) when is_binary(program) do
+  def run(program, params) when is_binary(program) do
     program
     |> String.split("\n", trim: true)
     |> Enum.join(",")
     |> String.replace(",,", ",")
     |> String.split(",", trim: true)
     |> Enum.map(&String.to_integer/1)
-    |> run(ext_inputs)
+    |> run(params)
   end
 
-  def run(program, ext_inputs) when is_list(program) do
+  def run(program, params) when is_list(program) do
     program
-    |> run_step(ext_inputs)
+    |> run_step(params)
     |> do_handle_result()
   end
 
   defp do_handle_result({:halt, data, exit_code}), do: {:halt, data |> Enum.join(","), exit_code}
 
-  defp do_handle_result(result), do: result
+  # defp do_handle_result(result), do: result
 
   defp find_inputs_to_get({command, data}) do
     case command do
@@ -78,35 +78,39 @@ defmodule IntcodeComputer do
     |> String.to_integer()
   end
 
-  defp run_step(prog, ext_inputs), do: run_step(prog, ext_inputs, 0)
+  defp run_step(prog, params), do: run_step(prog, params, 0)
 
-  defp run_step(prog, ext_inputs, index, exit_code \\ 0) do
+  defp run_step(prog, params, index, output \\ 999) do
     instruction = Enum.fetch!(prog, index)
     opcode = get_opcode_from_instruction(instruction)
 
     case opcode do
       n when n in [1, 2, 7, 8] ->
         {prog, index} = execute_opcode_for_operations(prog, index)
-        run_step(prog, ext_inputs, index)
+        run_step(prog, params, index, output)
 
       3 ->
-        [input | ext_inputs] = ext_inputs
+        # it will take first the phase number, later the amp input
+        [input | params] = params
         {prog, index} = execute_opcode_for_external_input(prog, index, input)
-        run_step(prog, ext_inputs, index)
+        run_step(prog, params, index, output)
 
       4 ->
-        {prog, index, exit_code} = execute_opcode_for_external_output(instruction, prog, index)
-        run_step(prog, ext_inputs, index, exit_code)
+        {prog, index, output} = execute_opcode_for_external_output(instruction, prog, index)
+        # the output will be the input in the next phase
+        params = [output | params]
+        run_step(prog, params, index, output)
 
       n when n in [5, 6] ->
         {prog, index} = execute_opcode_for_jump(prog, index)
-        run_step(prog, ext_inputs, index, exit_code)
+        run_step(prog, params, index, output)
 
       99 ->
-        {:halt, prog, exit_code}
+        {:halt, prog, output}
 
       _ ->
-        run_step(prog, ext_inputs, index + 1)
+        IO.inspect("eoooooooooooooooooooooooo")
+        run_step(prog, params, index + 1, output)
     end
   end
 
