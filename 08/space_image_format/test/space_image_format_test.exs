@@ -27,4 +27,16 @@ defmodule SpaceImageFormatTest do
     l2 = "001200"
     assert SpaceImageFormat.verification_layer([l1, l2]) == l1
   end
+
+  test "I can blend two layers" do
+    l1 = "012012"
+    l2 = "001200"
+    assert SpaceImageFormat.blend_layers(l1, l2) == "011010"
+  end
+
+  test "I can get the image from a file" do
+    image = "0222112222120000"
+    width = height = 2
+    assert SpaceImageFormat.process_image(image, width, height) == "0110"
+  end
 end
