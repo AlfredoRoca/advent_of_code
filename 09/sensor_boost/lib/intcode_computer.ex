@@ -1,4 +1,4 @@
-# from day 07
+# from day 05+07
 defmodule IntcodeComputer do
   require Logger
 
@@ -6,108 +6,60 @@ defmodule IntcodeComputer do
   @immediate_mode "1"
   @relative_mode "2"
 
-  def solution_to_program_1202 do
-    find_solution_for_program(12, 2)
-  end
+  def run(program), do: run(program, nil, 0)
 
-  def find_inputs_to_get_number(number) do
-    [noun, verb] = find_inputs_to_get({:run, [number, 0]})
+  def run(program, ext_inputs, relative_base \\ 0)
 
-    100 * noun + verb
-  end
-
-  def run(program, ext_inputs) when is_binary(program) do
+  def run(program, ext_inputs, relative_base) when is_binary(program) do
     program
     |> String.split("\n", trim: true)
     |> Enum.join(",")
     |> String.replace(",,", ",")
     |> String.split(",", trim: true)
     |> Enum.map(&String.to_integer/1)
-    |> run(ext_inputs)
+    |> run(ext_inputs, relative_base)
   end
 
-  def run(program, ext_inputs) when is_list(program) do
-    program
-    |> run_step(ext_inputs)
+  def run(program, ext_inputs, relative_base) when is_list(program) do
+    run_step(program, ext_inputs, relative_base)
     |> do_handle_result()
   end
 
-  defp do_handle_result({:halt, data, exit_code}), do: {:halt, data |> Enum.join(","), exit_code}
+  defp run_step(prog, ext_inputs, relative_base), do: run_step(prog, ext_inputs, relative_base, 0)
 
-  defp do_handle_result(result), do: result
-
-  defp find_inputs_to_get({command, data}) do
-    case command do
-      :run ->
-        [number, noun] = data
-        sol = find_solution_for_program(noun, 0)
-
-        next_command =
-          case sol - number do
-            n when n < 0 ->
-              {:run, [number, noun + 1]}
-
-            0 ->
-              {:solution, [noun, 0]}
-
-            n when n > 0 ->
-              prev_sol = find_solution_for_program(noun - 1, 0)
-              {:solution, [noun - 1, number - prev_sol]}
-          end
-
-        find_inputs_to_get(next_command)
-
-      :solution ->
-        data
-    end
-  end
-
-  defp find_solution_for_program(noun, verb) do
-    instructions =
-      File.read!("program.txt")
-      |> String.split(",", trim: true)
-      |> Enum.map(&String.to_integer/1)
-      |> Enum.slice(3..-1)
-
-    {_result, program, _exit_code} =
-      ([1, noun, verb] ++ instructions)
-      |> run([])
-
-    program
-    |> String.split(",")
-    |> List.first()
-    |> String.to_integer()
-  end
-
-  defp run_step(prog, ext_inputs), do: run_step(prog, ext_inputs, 0)
-
-  defp run_step(prog, ext_inputs, index, exit_code \\ 0) do
+  defp run_step(prog, ext_inputs, relative_base, index, exit_code \\ 0) do
     instruction = Enum.fetch!(prog, index)
     opcode = get_opcode_from_instruction(instruction)
 
     case opcode do
       n when n in [1, 2, 7, 8] ->
         {prog, index} = execute_opcode_for_operations(prog, index)
-        run_step(prog, ext_inputs, index)
+        run_step(prog, ext_inputs, relative_base, index)
 
       3 ->
         [input | ext_inputs] = ext_inputs
         {prog, index} = execute_opcode_for_external_input(prog, index, input)
-        run_step(prog, ext_inputs, index)
+        run_step(prog, ext_inputs, relative_base, index)
 
       4 ->
         {prog, index, exit_code} = execute_opcode_for_external_output(instruction, prog, index)
-        run_step(prog, ext_inputs, index, exit_code)
+        run_step(prog, ext_inputs, relative_base, index, exit_code)
 
       n when n in [5, 6] ->
         {prog, index} = execute_opcode_for_jump(prog, index)
-        run_step(prog, ext_inputs, index, exit_code)
+        run_step(prog, ext_inputs, relative_base, index, exit_code)
+
+      9 ->
+        {prog, index, relative_base} =
+          execute_opcode_for_relative_base_offset(instruction, prog, index, relative_base)
+
+        run_step(prog, ext_inputs, relative_base, index, exit_code)
 
       99 ->
-        {:halt, prog, exit_code}
+        {:halt, prog, exit_code, relative_base}
 
       _ ->
-        run_step(prog, ext_inputs, index + 1)
+        run_step(prog, ext_inputs, relative_base, index + 1)
     end
   end
 
@@ -173,6 +125,45 @@ defmodule IntcodeComputer do
     {prog, new_index}
   end
 
+  def execute_opcode_for_relative_base_offset(instruction, prog, index, current_relative_base) do
+    {mode_param1, _mode_param2} =
+      instruction
+      |> get_modes_from_instruction()
+
+    source = Enum.fetch!(prog, index + 1)
+    new_relative_base = current_relative_base + fetch_value(prog, source, mode_param1)
+    {prog, index + 2, new_relative_base}
+  end
+
+  defp do_handle_result({:halt, data, exit_code, relative_base}),
+    do: {:halt, data |> Enum.join(","), exit_code, relative_base}
+
+  defp find_inputs_to_get({command, data}) do
+    case command do
+      :run ->
+        [number, noun] = data
+        sol = find_solution_for_program(noun, 0)
+
+        next_command =
+          case sol - number do
+            n when n < 0 ->
+              {:run, [number, noun + 1]}
+
+            0 ->
+              {:solution, [noun, 0]}
+
+            n when n > 0 ->
+              prev_sol = find_solution_for_program(noun - 1, 0)
+              {:solution, [noun - 1, number - prev_sol]}
+          end
+
+        find_inputs_to_get(next_command)
+
+      :solution ->
+        data
+    end
+  end
+
   defp get_instruction_data(prog, index) do
     [instruction, param1, param2, param3] = Enum.slice(prog, index..(index + 3))
 
@@ -219,5 +210,32 @@ defmodule IntcodeComputer do
   defp insert_value_into_prog_at_position(prog, pos, value) when pos != 0 do
     # insert in between
     Enum.slice(prog, 0..(pos - 1)) ++ [value] ++ Enum.slice(prog, (pos + 1)..-1)
+  end
+
+  defp find_solution_for_program(noun, verb) do
+    instructions =
+      File.read!("program_for_testing_the_computer.txt")
+      |> String.split(",", trim: true)
+      |> Enum.map(&String.to_integer/1)
+      |> Enum.slice(3..-1)
+
+    {_result, program, _exit_code, _} =
+      ([1, noun, verb] ++ instructions)
+      |> run([])
+
+    program
+    |> String.split(",")
+    |> List.first()
+    |> String.to_integer()
+  end
+
+  def solution_to_program_1202 do
+    find_solution_for_program(12, 2)
+  end
+
+  def find_inputs_to_get_number(number) do
+    [noun, verb] = find_inputs_to_get({:run, [number, 0]})
+
+    100 * noun + verb
   end
 end
