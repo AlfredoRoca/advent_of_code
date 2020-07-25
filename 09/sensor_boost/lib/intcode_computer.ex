@@ -1,9 +1,10 @@
-# from day 05
+# from day 07
 defmodule IntcodeComputer do
   require Logger
 
   @position_mode "0"
   @immediate_mode "1"
+  @relative_mode "2"
 
   def solution_to_program_1202 do
     find_solution_for_program(12, 2)
