@@ -6,7 +6,15 @@ defmodule IntcodeComputerTest do
   @tag f: true
   test "can handle large numbers - 3" do
     program = "109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99"
-    expected_result = 1_125_899_906_842_624
+    expected_result = program
+
+    {_result, new_program, _exit_code, _relative_base} = IntcodeComputer.run(program)
+    assert new_program == expected_result
+  end
+
+  test "relative base offset - 2" do
+    program = "109,1,204,-1,99"
+    expected_result = 109
 
     {_result, _program, exit_code, _relative_base} = IntcodeComputer.run(program)
     assert exit_code == expected_result

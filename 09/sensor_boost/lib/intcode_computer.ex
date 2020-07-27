@@ -21,8 +21,12 @@ defmodule IntcodeComputer do
   end
 
   def run(program, ext_inputs, relative_base) when is_list(program) do
-    run_step(program, ext_inputs, relative_base)
-    |> do_handle_result()
+    # for later removing the extended memory
+    program_size = Enum.count(program)
+
+    {:halt, prog, exit_code, relative_base} = run_step(program, ext_inputs, relative_base)
+
+    do_handle_result({:halt, Enum.take(prog, program_size), exit_code, relative_base})
   end
 
   defp run_step(prog, ext_inputs, relative_base), do: run_step(prog, ext_inputs, relative_base, 0)
@@ -33,20 +37,31 @@ defmodule IntcodeComputer do
 
     case opcode do
       n when n in [1, 2, 7, 8] ->
-        {prog, index} = execute_opcode_for_operations(prog, index)
+        {prog, index} = execute_opcode_for_operations(prog, index, relative_base)
         run_step(prog, ext_inputs, relative_base, index)
 
       3 ->
-        [input | ext_inputs] = ext_inputs
+        {input, ext_inputs} =
+          case ext_inputs do
+            nil ->
+              {nil, nil}
+
+            _ ->
+              [input | ext_inputs] = ext_inputs
+              {input, ext_inputs}
+          end
+
         {prog, index} = execute_opcode_for_external_input(prog, index, input)
         run_step(prog, ext_inputs, relative_base, index)
 
       4 ->
-        {prog, index, exit_code} = execute_opcode_for_external_output(instruction, prog, index)
+        {prog, index, exit_code} =
+          execute_opcode_for_external_output(instruction, prog, index, relative_base)
+
         run_step(prog, ext_inputs, relative_base, index, exit_code)
 
       n when n in [5, 6] ->
-        {prog, index} = execute_opcode_for_jump(prog, index)
+        {prog, index} = execute_opcode_for_jump(prog, index, relative_base)
         run_step(prog, ext_inputs, relative_base, index, exit_code)
 
       9 ->
@@ -63,8 +78,8 @@ defmodule IntcodeComputer do
     end
   end
 
-  defp execute_opcode_for_operations(prog, index) do
-    {opcode, value1, value2, param3} = get_instruction_data(prog, index)
+  defp execute_opcode_for_operations(prog, index, relative_base) do
+    {prog, opcode, value1, value2, param3} = get_instruction_data(prog, index, relative_base)
 
     operation =
       case opcode do
@@ -100,19 +115,20 @@ defmodule IntcodeComputer do
     {insert_value_into_prog_at_position(prog, target, input), index + 2}
   end
 
-  defp execute_opcode_for_external_output(instruction, prog, index) do
+  defp execute_opcode_for_external_output(instruction, prog, index, relative_base) do
     {mode_param1, _mode_param2} =
       instruction
       |> get_modes_from_instruction()
 
     source = Enum.fetch!(prog, index + 1)
-    exit_code = fetch_value(prog, source, mode_param1)
+    {prog, exit_code} = fetch_value(prog, source, mode_param1, relative_base)
+    exit_code |> IO.inspect(label: "Output")
 
     {prog, index + 2, exit_code}
   end
 
-  def execute_opcode_for_jump(prog, index) do
-    {opcode, value1, value2, _param3} = get_instruction_data(prog, index)
+  def execute_opcode_for_jump(prog, index, relative_base) do
+    {prog, opcode, value1, value2, _param3} = get_instruction_data(prog, index, relative_base)
 
     new_index =
       case opcode do
@@ -131,12 +147,14 @@ defmodule IntcodeComputer do
       |> get_modes_from_instruction()
 
     source = Enum.fetch!(prog, index + 1)
-    new_relative_base = current_relative_base + fetch_value(prog, source, mode_param1)
+    {prog, offset} = fetch_value(prog, source, mode_param1, current_relative_base)
+    new_relative_base = current_relative_base + offset
     {prog, index + 2, new_relative_base}
   end
 
-  defp do_handle_result({:halt, data, exit_code, relative_base}),
-    do: {:halt, data |> Enum.join(","), exit_code, relative_base}
+  defp do_handle_result({:halt, data, exit_code, relative_base}) do
+    {:halt, data |> Enum.join(","), exit_code, relative_base}
+  end
 
   defp find_inputs_to_get({command, data}) do
     case command do
@@ -164,7 +182,7 @@ defmodule IntcodeComputer do
     end
   end
 
-  defp get_instruction_data(prog, index) do
+  defp get_instruction_data(prog, index, relative_base) do
     [instruction, param1, param2, param3] = Enum.slice(prog, index..(index + 3))
 
     opcode =
@@ -175,10 +193,10 @@ defmodule IntcodeComputer do
       instruction
       |> get_modes_from_instruction()
 
-    value1 = fetch_value(prog, param1, mode_param1)
-    value2 = fetch_value(prog, param2, mode_param2)
+    {prog, value1} = fetch_value(prog, param1, mode_param1, relative_base)
+    {prog, value2} = fetch_value(prog, param2, mode_param2, relative_base)
 
-    {opcode, value1, value2, param3}
+    {prog, opcode, value1, value2, param3}
   end
 
   defp get_opcode_from_instruction(instruction) do
@@ -194,12 +212,43 @@ defmodule IntcodeComputer do
     {mode_param1, mode_param2}
   end
 
-  defp fetch_value(prog, pos, mode) when mode == @position_mode do
-    Enum.fetch!(prog, pos)
+  defp fetch_value(prog, pos, mode, _relative_base) when mode == @position_mode do
+    result = Enum.fetch(prog, pos)
+
+    case result do
+      {:ok, value} ->
+        {prog, value}
+
+      :error ->
+        extended_memory = for _n <- 1..(pos - Enum.count(prog)), do: 0
+
+        extended_memory_prog =
+          [extended_memory | Enum.reverse(prog)] |> Enum.reverse() |> List.flatten()
+
+        {extended_memory_prog, 0}
+    end
   end
 
-  defp fetch_value(_prog, pos, mode) when mode == @immediate_mode do
-    pos
+  defp fetch_value(prog, pos, mode, _relative_base) when mode == @immediate_mode do
+    {prog, pos}
+  end
+
+  defp fetch_value(prog, pos, mode, relative_base) when mode == @relative_mode do
+    pos = pos + relative_base
+    result = Enum.fetch(prog, pos)
+
+    case result do
+      {:ok, value} ->
+        {prog, value}
+
+      :error ->
+        extended_memory = for _n <- 1..(pos - Enum.count(prog)), do: 0
+
+        extended_memory_prog =
+          [extended_memory | Enum.reverse(prog)] |> Enum.reverse() |> List.flatten()
+
+        {extended_memory_prog, 0}
+    end
   end
 
   defp insert_value_into_prog_at_position(prog, pos, value) when pos == 0 do
