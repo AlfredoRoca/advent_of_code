@@ -3,7 +3,6 @@ defmodule IntcodeComputerTest do
   require Logger
   import Mock
 
-  @tag f: true
   test "can handle large numbers - 3" do
     program = "109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99"
     expected_result = program
@@ -36,7 +35,48 @@ defmodule IntcodeComputerTest do
     assert exit_code == expected_result
   end
 
-  test "relative base offset - 1" do
+  test "expand_prog_with_memory(prog, pos)" do
+    prog = [1, 2, 3, 4]
+    pos = 10
+
+    {prog_with_extended_memory, filling_value} =
+      IntcodeComputer.expand_prog_with_memory(prog, pos)
+
+    assert filling_value == 0
+    assert prog_with_extended_memory == [1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0]
+  end
+
+  test "fetch_value(prog, pos, mode, relative_base) when position mode" do
+    prog = [1, 2, 3, 10, 5, 6, 7, 8, 9, 10, 999]
+    pos = 3
+    mode = "0"
+    relative_base = 0
+    expected_value = 10
+    {_prog, value} = IntcodeComputer.fetch_value(prog, pos, mode, relative_base)
+    assert value == expected_value
+  end
+
+  test "fetch_value(prog, pos, mode, relative_base) when immediate mode" do
+    prog = [1, 2, 3, 10, 5, 6, 7, 8, 9, 10, 999]
+    pos = 3
+    mode = "1"
+    relative_base = 0
+    expected_value = 3
+    {_prog, value} = IntcodeComputer.fetch_value(prog, pos, mode, relative_base)
+    assert value == expected_value
+  end
+
+  test "fetch_value(prog, pos, mode, relative_base) when relative mode" do
+    prog = [1, 2, 3, 10, 5, 6, 7, 8, 9, 10, 0, 0, 0, 999]
+    pos = 3
+    mode = "2"
+    relative_base = 10
+    expected_value = 999
+    {_prog, value} = IntcodeComputer.fetch_value(prog, pos, mode, relative_base)
+    assert value == expected_value
+  end
+
+  test "relative base offset in immediate mode" do
     program = "109,19,99"
     relative_base = 2000
     expected_result = 2019
@@ -45,6 +85,44 @@ defmodule IntcodeComputerTest do
       IntcodeComputer.run(program, nil, relative_base)
 
     assert relative_base == expected_result
+  end
+
+  test "relative base offset - in relative mode" do
+    program = "209,3,99,1,2,3,4,5,15"
+    relative_base = 5
+    expected_result = 20
+
+    {_result, _program, _exit_code, relative_base} =
+      IntcodeComputer.run(program, nil, relative_base)
+
+    assert relative_base == expected_result
+  end
+
+  test "insert_value_into_prog_at_position(prog, pos, value) when pos != 0" do
+    program = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0]
+    expected_result = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 999]
+
+    assert IntcodeComputer.insert_value_into_prog_at_position(program, 10, 999) == expected_result
+  end
+
+  test "insert_value_into_prog_at_position(prog, pos, value) when pos outbound" do
+    program = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    expected_result = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0, 0, 999]
+
+    assert IntcodeComputer.insert_value_into_prog_at_position(program, 15, 999) == expected_result
+  end
+
+  @tag f: true
+  test "test opcode 203" do
+    program = "203,5,4,15,99"
+    relative_base = 10
+    external_inputs = [8]
+    expected_code = 8
+
+    {_result, _program, exit_code, _relative_base} =
+      IntcodeComputer.run(program, external_inputs, relative_base)
+
+    assert exit_code == expected_code
   end
 
   test "sample program 1 (position mode) - equal -> true" do
@@ -302,6 +380,7 @@ defmodule IntcodeComputerTest do
     assert program == output
   end
 
+  @tag f: true
   test "runs program 4" do
     program = "1,1,1,4,99,5,6,0,99"
     output = "30,1,1,4,2,5,6,0,99"

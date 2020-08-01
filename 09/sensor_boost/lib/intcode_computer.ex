@@ -23,16 +23,16 @@ defmodule IntcodeComputer do
   def run(program, ext_inputs, relative_base) when is_list(program) do
     # for later removing the extended memory
     program_size = Enum.count(program)
+    index = 0
 
-    {:halt, prog, exit_code, relative_base} = run_step(program, ext_inputs, relative_base)
+    {:halt, prog, exit_code, relative_base} = run_step(program, ext_inputs, relative_base, index)
 
     do_handle_result({:halt, Enum.take(prog, program_size), exit_code, relative_base})
   end
 
-  defp run_step(prog, ext_inputs, relative_base), do: run_step(prog, ext_inputs, relative_base, 0)
-
   defp run_step(prog, ext_inputs, relative_base, index, exit_code \\ 0) do
     instruction = Enum.fetch!(prog, index)
+
     opcode = get_opcode_from_instruction(instruction)
 
     case opcode do
@@ -41,18 +41,10 @@ defmodule IntcodeComputer do
         run_step(prog, ext_inputs, relative_base, index)
 
       3 ->
-        {input, ext_inputs} =
-          case ext_inputs do
-            nil ->
-              {nil, nil}
+        {prog, index, external_inputs} =
+          execute_opcode_for_external_inputs(prog, index, ext_inputs, relative_base)
 
-            _ ->
-              [input | ext_inputs] = ext_inputs
-              {input, ext_inputs}
-          end
-
-        {prog, index} = execute_opcode_for_external_input(prog, index, input)
-        run_step(prog, ext_inputs, relative_base, index)
+        run_step(prog, external_inputs, relative_base, index)
 
       4 ->
         {prog, index, exit_code} =
@@ -79,9 +71,9 @@ defmodule IntcodeComputer do
   end
 
   defp execute_opcode_for_operations(prog, index, relative_base) do
-    {prog, opcode, value1, value2, param3} = get_instruction_data(prog, index, relative_base)
+    {prog, opcode, value1, value2, target} = get_instruction_data(prog, index, relative_base)
 
-    operation =
+    operation_result =
       case opcode do
         1 ->
           value1 + value2
@@ -96,35 +88,44 @@ defmodule IntcodeComputer do
           if value1 == value2, do: 1, else: 0
       end
 
-    {insert_value_into_prog_at_position(prog, param3, operation), index + 4}
+    {insert_value_into_prog_at_position(prog, target, operation_result), index + 4}
   end
 
-  defp execute_opcode_for_external_input(prog, index, input) when is_nil(input) do
-    input =
+  defp execute_opcode_for_external_inputs(prog, index, inputs, relative_base)
+       when is_nil(inputs) do
+    inputs =
       IO.gets("Introduce integer: ")
       |> String.trim()
       |> String.to_integer()
 
-    execute_opcode_for_external_input(prog, index, input)
+    execute_opcode_for_external_inputs(prog, index, [inputs], relative_base)
   end
 
-  defp execute_opcode_for_external_input(prog, index, input) do
-    # returns the new prog and the next position in the prog
-    target = Enum.fetch!(prog, index + 1)
+  defp execute_opcode_for_external_inputs(prog, index, [input | ext_inputs], relative_base) do
+    [instruction, target] = Enum.slice(prog, index..(index + 1))
 
-    {insert_value_into_prog_at_position(prog, target, input), index + 2}
+    {mode_param1, _, _} = get_modes_from_instruction(instruction)
+
+    pos =
+      case mode_param1 do
+        @relative_mode -> target + relative_base
+        @position_mode -> target
+        @immediate_mode -> target
+      end
+
+    prog = insert_value_into_prog_at_position(prog, pos, input)
+
+    {prog, index + 2, ext_inputs}
   end
 
   defp execute_opcode_for_external_output(instruction, prog, index, relative_base) do
-    {mode_param1, _mode_param2} =
-      instruction
-      |> get_modes_from_instruction()
+    {mode_param1, _mode_param2, _mode_param3} = get_modes_from_instruction(instruction)
 
     source = Enum.fetch!(prog, index + 1)
-    {prog, exit_code} = fetch_value(prog, source, mode_param1, relative_base)
-    exit_code |> IO.inspect(label: "Output")
+    {prog, output} = fetch_value(prog, source, mode_param1, relative_base)
+    output |> IO.inspect(label: "Output")
 
-    {prog, index + 2, exit_code}
+    {prog, index + 2, output}
   end
 
   def execute_opcode_for_jump(prog, index, relative_base) do
@@ -141,15 +142,14 @@ defmodule IntcodeComputer do
     {prog, new_index}
   end
 
-  def execute_opcode_for_relative_base_offset(instruction, prog, index, current_relative_base) do
-    {mode_param1, _mode_param2} =
-      instruction
-      |> get_modes_from_instruction()
+  def execute_opcode_for_relative_base_offset(instruction, prog, index, relative_base) do
+    {mode_param1, _mode_param2, _mode_param3} = get_modes_from_instruction(instruction)
 
     source = Enum.fetch!(prog, index + 1)
-    {prog, offset} = fetch_value(prog, source, mode_param1, current_relative_base)
-    new_relative_base = current_relative_base + offset
-    {prog, index + 2, new_relative_base}
+
+    {prog, offset} = fetch_value(prog, source, mode_param1, relative_base)
+
+    {prog, index + 2, relative_base + offset}
   end
 
   defp do_handle_result({:halt, data, exit_code, relative_base}) do
@@ -185,18 +185,15 @@ defmodule IntcodeComputer do
   defp get_instruction_data(prog, index, relative_base) do
     [instruction, param1, param2, param3] = Enum.slice(prog, index..(index + 3))
 
-    opcode =
-      instruction
-      |> get_opcode_from_instruction()
+    opcode = get_opcode_from_instruction(instruction)
 
-    {mode_param1, mode_param2} =
-      instruction
-      |> get_modes_from_instruction()
+    {mode_param1, mode_param2, mode_param3} = get_modes_from_instruction(instruction)
 
     {prog, value1} = fetch_value(prog, param1, mode_param1, relative_base)
     {prog, value2} = fetch_value(prog, param2, mode_param2, relative_base)
+    {prog, target} = fetch_value(prog, param3, mode_param3, relative_base)
 
-    {prog, opcode, value1, value2, param3}
+    {prog, opcode, value1, value2, target}
   end
 
   defp get_opcode_from_instruction(instruction) do
@@ -204,15 +201,15 @@ defmodule IntcodeComputer do
   end
 
   defp get_modes_from_instruction(instruction) do
-    <<mode_param2::binary-size(1), mode_param1::binary-size(1)>> =
+    <<mode_param3::binary-size(1), mode_param2::binary-size(1), mode_param1::binary-size(1)>> =
       trunc(instruction / 100)
       |> Integer.to_string()
-      |> String.pad_leading(2, "0")
+      |> String.pad_leading(3, "0")
 
-    {mode_param1, mode_param2}
+    {mode_param1, mode_param2, mode_param3}
   end
 
-  defp fetch_value(prog, pos, mode, _relative_base) when mode == @position_mode do
+  def fetch_value(prog, pos, mode, _relative_base) when mode == @position_mode do
     result = Enum.fetch(prog, pos)
 
     case result do
@@ -220,20 +217,15 @@ defmodule IntcodeComputer do
         {prog, value}
 
       :error ->
-        extended_memory = for _n <- 1..(pos - Enum.count(prog)), do: 0
-
-        extended_memory_prog =
-          [extended_memory | Enum.reverse(prog)] |> Enum.reverse() |> List.flatten()
-
-        {extended_memory_prog, 0}
+        expand_prog_with_memory(prog, pos)
     end
   end
 
-  defp fetch_value(prog, pos, mode, _relative_base) when mode == @immediate_mode do
+  def fetch_value(prog, pos, mode, _relative_base) when mode == @immediate_mode do
     {prog, pos}
   end
 
-  defp fetch_value(prog, pos, mode, relative_base) when mode == @relative_mode do
+  def fetch_value(prog, pos, mode, relative_base) when mode == @relative_mode do
     pos = pos + relative_base
     result = Enum.fetch(prog, pos)
 
@@ -242,23 +234,37 @@ defmodule IntcodeComputer do
         {prog, value}
 
       :error ->
-        extended_memory = for _n <- 1..(pos - Enum.count(prog)), do: 0
-
-        extended_memory_prog =
-          [extended_memory | Enum.reverse(prog)] |> Enum.reverse() |> List.flatten()
-
-        {extended_memory_prog, 0}
+        expand_prog_with_memory(prog, pos)
     end
   end
 
-  defp insert_value_into_prog_at_position(prog, pos, value) when pos == 0 do
+  def expand_prog_with_memory(prog, pos) do
+    # TODO instead of adding dummy elements and filling them with 0s, better to have stored the %{position,value} pair
+    filling_value = 0
+    extended_memory = for _n <- 0..(pos - Enum.count(prog)), do: filling_value
+
+    prog_with_extended_memory =
+      [extended_memory | Enum.reverse(prog)] |> Enum.reverse() |> List.flatten()
+
+    {prog_with_extended_memory, filling_value}
+  end
+
+  def insert_value_into_prog_at_position(prog, pos, value) when pos == 0 do
     # insert at the begining
     [value] ++ Enum.slice(prog, 1..-1)
   end
 
-  defp insert_value_into_prog_at_position(prog, pos, value) when pos != 0 do
+  def insert_value_into_prog_at_position(prog, pos, value) when pos != 0 do
+    program =
+      if Enum.count(prog) < pos do
+        {p, _} = expand_prog_with_memory(prog, pos)
+        p
+      else
+        prog
+      end
+
     # insert in between
-    Enum.slice(prog, 0..(pos - 1)) ++ [value] ++ Enum.slice(prog, (pos + 1)..-1)
+    Enum.slice(program, 0..(pos - 1)) ++ [value] ++ Enum.slice(prog, (pos + 1)..-1)
   end
 
   defp find_solution_for_program(noun, verb) do
