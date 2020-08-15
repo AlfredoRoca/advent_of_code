@@ -1,4 +1,8 @@
-# SensorBoost
+# Sensor Boost
+
+## How to get solutions
+
+Execute `SensorBoost.Day9_part1` in iex; the output is the solution
 
 --- Day 9: Sensor Boost ---
 
@@ -37,4 +41,46 @@ Here are some example programs that use these features:
 
 The BOOST program will ask for a single input; run it in test mode by providing it the value 1. It will perform a series of checks on each opcode, output any opcodes (and the associated parameter modes) that seem to be functioning incorrectly, and finally output a BOOST keycode.
 
-Once your Intcode computer is fully functional, the BOOST program should report no malfunctioning opcodes when run in test mode; it should only output a single value, the BOOST keycode. What BOOST keycode does it produce?
+Once your Intcode computer is fully functional, the BOOST program should report no malfunctioning opcodes when run in
+test mode; it should only output a single value, the BOOST keycode. What BOOST keycode does it produce?
+
+## Computer - overview of opcodes and parameter modes
+
+### Opcodes
+
+Opcode 1 adds together numbers read from two positions and stores the result in a third position. The three integers immediately after the opcode tell you these three positions - the first two indicate the positions from which you should read the input values, and the third indicates the position at which the output should be stored.
+
+For example, if your Intcode computer encounters 1,10,20,30, it should read the values at positions 10 and 20, add those values, and then overwrite the value at position 30 with their sum.
+
+Opcode 2 works exactly like opcode 1, except it multiplies the two inputs instead of adding them. Again, the three integers after the opcode indicate where the inputs and outputs are, not their values.
+
+Opcode 3 takes a single integer as input and saves it to the position given by its only parameter. For example, the instruction 3,50 would take an input value and store it at address 50.
+
+Opcode 4 outputs the value of its only parameter. For example, the instruction 4,50 would output the value at address 50.
+Programs that use these instructions will come with documentation that explains what should be connected to the input and output. The program 3,0,4,0,99 outputs whatever it gets as input, then halts.
+
+Opcode 5 is jump-if-true: if the first parameter is non-zero, it sets the instruction pointer to the value from the second parameter. Otherwise, it does nothing.
+
+Opcode 6 is jump-if-false: if the first parameter is zero, it sets the instruction pointer to the value from the second parameter. Otherwise, it does nothing.
+
+Opcode 7 is less than: if the first parameter is less than the second parameter, it stores 1 in the position given by the third parameter. Otherwise, it stores 0.
+
+Opcode 8 is equals: if the first parameter is equal to the second parameter, it stores 1 in the position given by the third parameter. Otherwise, it stores 0.
+
+Opcode 9 adjusts the relative base by the value of its only parameter. The relative base increases (or decreases, if the value is negative) by the value of the parameter.
+
+Opcode 99 is halt
+
+### Parameter modes
+
+mode 0, position mode, which causes the parameter to be interpreted as a position - if the parameter is 50,
+its value is the value stored at address 50 in memory
+
+mode 1, immediate mode. In immediate mode, a parameter is interpreted as a value - if the parameter is 50, its value is
+simply 50
+
+### Instruction pointer
+
+Normally, after an instruction is finished, the instruction pointer increases by the number of values in that
+instruction. However, if the instruction modifies the instruction pointer, that value is used and the instruction
+pointer is not automatically increased.
