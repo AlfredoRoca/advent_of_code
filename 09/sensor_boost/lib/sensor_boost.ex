@@ -20,6 +20,11 @@ defmodule SensorBoost do
     |> Program.run([1])
   end
 
+  def day9_part2 do
+    Program.new(file: "puzzle_input.txt")
+    |> Program.run([2])
+  end
+
   def try_file(file, inputs) do
     Program.new(file: file)
     |> Program.run(inputs)
