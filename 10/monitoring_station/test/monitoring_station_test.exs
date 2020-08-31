@@ -163,11 +163,21 @@ defmodule MonitoringStationTest do
     ###.##.####.##.#..##
     """
 
-    # assert MonitoringStation.find_nth_vaporized(map, 1).p == {11, 12}
-    # assert MonitoringStation.find_nth_vaporized(map, 100).p == {10, 16}
-    # assert MonitoringStation.find_nth_vaporized(map, 200).p == {8, 2}
-    # assert MonitoringStation.find_nth_vaporized(map, 201).p == {10, 9}
-    assert MonitoringStation.find_nth_vaporized(map, 299).p == {11, 1}
+    processed_map = MonitoringStation.process_map(map)
+
+    best_asteroid =
+      processed_map
+      |> Enum.map(&MonitoringStation.get_scan/1)
+      |> MonitoringStation.guess_best_place()
+      |> IO.inspect(label: "best asteroid")
+
+    visible = MonitoringStation.visible_at_best_place(processed_map, best_asteroid)
+
+    assert MonitoringStation.get_nth_vaporized(visible, best_asteroid, 1) == {11, 12}
+    assert MonitoringStation.get_nth_vaporized(visible, best_asteroid, 100) == {10, 16}
+    assert MonitoringStation.get_nth_vaporized(visible, best_asteroid, 200) == {8, 2}
+    assert MonitoringStation.get_nth_vaporized(visible, best_asteroid, 201) == {10, 9}
+    assert MonitoringStation.get_nth_vaporized(visible, best_asteroid, 299) == {11, 1}
   end
 
   test "are_in_the_same_side_as_origin?({x0, y0}, {x1, y1}, {x2, y2})" do
