@@ -2,9 +2,10 @@
 
 ## How to get solutions
 
-Execute `MonitoringStation.Day10_part1` in iex; the output is the solution
-
+Execute `MonitoringStation.Day10_part1` in iex; the output is the solution for part 1
 => %{{22, 19} => 282}
+
+Execute `MonitoringStation.Day10_part2` in iex; the output is the solution for part 2
 
 ## The puzzle
 
