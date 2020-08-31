@@ -2,10 +2,10 @@ defmodule MonitoringStation do
   @moduledoc """
   Documentation for MonitoringStation.
   """
+  @infinite :math.pow(2, 100)
 
   def start(_start_type, _start_args) do
-    # TO BE ABLE TO DEBUG RUNNING MIX TEST, UNCOMMENT NEXT LINE
-    __MODULE__.best_location()
+    __MODULE__.day10_part2()
     Supervisor.start_link([], strategy: :one_for_one)
   end
 
@@ -14,44 +14,30 @@ defmodule MonitoringStation do
     |> best_location()
   end
 
-  def best_location do
-    map = """
-    ......#.#.
-    #..#.#....
-    ..#######.
-    .#.#.###..
-    .#..#.....
-    ..#....#.#
-    #..#....#.
-    .##.#..###
-    ##...#..#.
-    .#....####
-    """
-
-    best_location(map)
+  def day10_part2 do
+    day10_part2(File.read!("puzzle_input.txt"), 200)
   end
 
-  def best_location(map) do
-    space = parse_map_into_space(map)
-    # |> IO.inspect(label: "space")
+  def day10_part2(map, nth \\ 1) do
+    processed_map = process_map(map)
 
-    # [
-    #   [".", "#", ".", ".", "#"],
-    #   [".", ".", ".", ".", "."],
-    #   ["#", "#", "#", "#", "#"],
-    #   [".", ".", ".", ".", "#"],
-    #   [".", ".", ".", "#", "#"]
-    # ]
+    best_asteroid =
+      processed_map
+      |> Enum.map(&get_scan/1)
+      |> guess_best_place()
+      |> IO.inspect(label: "best asteroid")
 
-    asteroids = get_asteroids_from_space(space)
-    # |> IO.inspect(label: "asteroids")
+    visible_at_best_place(processed_map, best_asteroid)
+    |> get_nth_vaporized(best_asteroid, nth)
+    |> IO.inspect(label: "solution vaporized nth = #{nth}")
+  end
 
-    # [{1, 0}, {4, 0}, {0, 2}, {1, 2}, {2, 2}, {3, 2}, {4, 2}, {4, 3}, {3, 4}, {4, 4}]
-
-    find_alignements(asteroids)
-    |> find_visible()
-    |> find_best_location
-    |> IO.inspect(label: "best location")
+  def process_map(map) do
+    map
+    |> parse_map_into_space()
+    |> get_asteroids_from_space()
+    |> find_alignements()
+    |> order_by_distance()
   end
 
   # parses the map into an array
@@ -76,26 +62,35 @@ defmodule MonitoringStation do
   end
 
   def find_alignements(asteroids) do
+    # returns a list of tuples like {origin, list of alignements (alignement is a list of aligned asteroids)}
     Enum.flat_map(asteroids, fn p ->
       aligned_asteroids(asteroids, p)
     end)
     |> Enum.uniq()
     |> Enum.group_by(&List.first/1)
     |> Map.to_list()
+    |> Enum.map(fn {p, alignements_of_p} ->
+      {p, Enum.map(alignements_of_p, fn line -> Enum.reject(line, fn x -> x == p end) end)}
+    end)
   end
 
-  def find_visible(alignements) do
+  def order_by_distance(alignements) do
+    # receives alignements of all points
+    # returns a list of tuples {asteroid, list of alignements}
+    # {{3, 3},
+    #  [
+    #    [{5, 6}, {7, 9}, {13, 18}],
+    #    [{1, 0}],
+    #    [{2, 6}, {1, 9}],
+    #    [{4, 0}],
+    #    [{1, 6}], ...
+    #  ]
+
     Enum.map(alignements, fn {p, alignements_of_p} ->
-      without_origin =
-        Enum.map(alignements_of_p, fn line -> Enum.reject(line, fn x -> x == p end) end)
-
-      # [[{4, 1}, {1, 0}], [{4, 1}, {3, 0}], [{4, 1}, {4, 0}, {4, 2}], [{4, 1}, {3, 2}]]
-      #  without {4,1} -> [[{1, 0}], [{3, 0}], [{4, 0}, {4, 2}], [{3, 2}]]
-
       {p,
-       Enum.map(without_origin, fn line ->
+       Enum.flat_map(alignements_of_p, fn line ->
          if Enum.count(line) == 1 do
-           line
+           [line]
          else
            q = List.first(line)
 
@@ -103,24 +98,145 @@ defmodule MonitoringStation do
              Enum.group_by(line, fn r -> are_in_the_same_side_as_origin?(p, q, r) end)
              #  p={4,2} ; q={4,0} ; line = [{4, 0}, {4, 1}, {4, 3}, {4, 4}, {4, 5}]
              # %{false: [{4, 3}, {4, 4}, {4, 5}], true: [{4, 0}, {4, 1}]}
+             #  this line is to ensure both sides are present
              |> Map.merge(%{true: [], false: []}, fn _k, v1, v2 -> v1 ++ v2 end)
 
-           [nearer(same_side_groups.false, p), nearer(same_side_groups.true, p)]
+           [
+             Enum.sort_by(same_side_groups.false, &distance_to_origin(&1, p)),
+             Enum.sort_by(same_side_groups.true, &distance_to_origin(&1, p))
+           ]
            |> Enum.reject(&is_nil/1)
+           |> Enum.reject(&Enum.empty?/1)
          end
        end)}
     end)
   end
 
-  def space_dimensions(space) do
-    {Enum.count(List.first(space)), Enum.count(space)}
+  def get_scan({origin = {x0, _y0}, alignements}) do
+    # returns the first round of the scanner, ie the nearer points in each alignement
+    # the returned structure is a list of maps like %{p: {x,y}, tg: tg angle alignement}
+    first_wave = Enum.map(alignements, &List.first/1)
+
+    %{:g1 => g1, :g2 => g2, :g3 => g3, :g4 => g4} =
+      Enum.reduce(first_wave, %{:g1 => [], :g2 => [], :g3 => [], :g4 => []}, fn p = {x, _y},
+                                                                                %{
+                                                                                  :g1 => g1,
+                                                                                  :g2 => g2,
+                                                                                  :g3 => g3,
+                                                                                  :g4 => g4
+                                                                                } ->
+        tg_a = MonitoringStation.tg_a(origin, p)
+
+        [g1, g2, g3, g4] =
+          if tg_a > 0 do
+            if x >= x0,
+              do: [[%{:p => p, :tg => tg_a} | g1], g2, g3, g4],
+              else: [g1, g2, [%{:p => p, :tg => tg_a} | g3], g4]
+          else
+            if x >= x0,
+              do: [g1, [%{:p => p, :tg => tg_a} | g2], g3, g4],
+              else: [g1, g2, g3, [%{:p => p, :tg => tg_a} | g4]]
+          end
+          |> Enum.map(fn g -> Enum.sort_by(g, & &1.tg) |> Enum.reverse() end)
+
+        %{:g1 => g1, :g2 => g2, :g3 => g3, :g4 => g4}
+      end)
+
+    {origin, [[[g1 | g2] | g3] | g4] |> List.flatten()}
+  end
+
+  def guess_best_place(scans) do
+    # receives a list of tuples formed by a tuple of a point and a list of list of map-points %{p: _, tg: _}
+    # [
+    #   {{8, 0},[%{p: {9, 0}, tg: 0.0},%{p: {18, 1}, tg: -0.1}]},
+    #   {{15, 9},[%{p: {15, 8}, tg: 1.267e30},%{p: {16, 0}, tg: 9.0}, ...
+    # ]
+    {p, visible} = Enum.max_by(scans, fn {_p, visible} -> Enum.count(visible) end)
+
+    %{p => Enum.count(visible)}
+    |> Map.keys()
+    |> List.first()
+  end
+
+  def visible_at_best_place(processed_map, best) do
+    Enum.filter(processed_map, fn {p, _} -> p == best end)
+    |> List.first()
+  end
+
+  def get_nth_vaporized(scanner, best_asteroid, nth) do
+    {exit_code, response} = try_get_nth_vaporized(scanner, best_asteroid, nth)
+
+    case exit_code do
+      :ok -> response.p
+      :error -> response
+    end
+  end
+
+  def try_get_nth_vaporized(scanner, best_asteroid, nth) do
+    scan = {_p, alignements} = get_scan(scanner)
+
+    size = Enum.count(alignements)
+
+    if alignements == [] do
+      {:error, "Not found"}
+    else
+      if nth <= size do
+        {:ok, Enum.at(alignements, nth - 1)}
+      else
+        remove_scan_from_scanner(scanner, scan)
+        |> try_get_nth_vaporized(best_asteroid, nth - size)
+      end
+    end
+  end
+
+  def remove_scan_from_scanner(_scanner = {origin, points}, _scan = {_p, alignements}) do
+    scan_points = Enum.map(alignements, &Map.get(&1, :p))
+
+    # points = [[{19, 0}],[{0, 1}],[{12, 15}, {13, 17}],[{10, 11}, {9, 9}, {6, 3}, {5, 1}],...]
+    # scan_points -> [{11, 12},{12, 1},{12, 2},{12, 4},{12, 5},{12, 6},{13, 0},...]
+
+    # => [{5, 3}, {6, 0}, {6, 2}, {6, 3}, {7, 2}, {8, 0}, {7, 3}]
+    remaining_points =
+      Enum.map(points, fn alignement ->
+        Enum.reject(alignement, fn p -> Enum.find(scan_points, fn s -> s == p end) end)
+      end)
+      |> Enum.reject(&Enum.empty?/1)
+
+    {origin, remaining_points}
+  end
+
+  def distance_to_origin(_p = {x, y}, _origin = {x0, y0}) do
+    abs(x - x0) + abs(y - y0)
+  end
+
+  def find_best_location(array_of_scans) do
+    {p, visible} = Enum.max_by(array_of_scans, fn {_p, visible} -> Enum.count(visible) end)
+
+    %{p => Enum.count(visible)}
+  end
+
+  def best_location(map) do
+    space = parse_map_into_space(map)
+    # [
+    #   [".", "#", ".", ".", "#"],
+    #   [".", ".", ".", ".", "."],
+    #   ["#", "#", "#", "#", "#"],
+    #   [".", ".", ".", ".", "#"],
+    #   [".", ".", ".", "#", "#"]
+    # ]
+
+    asteroids = get_asteroids_from_space(space)
+    # [{1, 0}, {4, 0}, {0, 2}, {1, 2}, {2, 2}, {3, 2}, {4, 2}, {4, 3}, {3, 4}, {4, 4}]
+
+    find_alignements(asteroids)
+    |> order_by_distance()
+    |> find_best_location
   end
 
   def aligned_asteroids(asteroids, origin = {x0, y0}) do
     Enum.map(asteroids -- [origin], fn _p = {x1, y1} ->
       {dx, dy} = {x1 - x0, y1 - y0}
-
-      [origin | MonitoringStation.aligned_to_origin_with_slope(asteroids, origin, {dx, dy})]
+      [origin | aligned_to_origin_with_slope(asteroids, origin, {dx, dy})]
     end)
   end
 
@@ -138,19 +254,6 @@ defmodule MonitoringStation do
     end)
   end
 
-  def find_best_location(array_of_visible) do
-    {p, visible} =
-      Enum.max_by(array_of_visible, fn {_p, visible} -> Enum.count(List.flatten(visible)) end)
-
-    %{p => Enum.count(List.flatten(visible))}
-  end
-
-  def nearer([], _), do: nil
-
-  def nearer(aligned, _origin = {x0, y0}) do
-    Enum.min_by(aligned, fn {x, y} -> abs(x - x0) + abs(y - y0) end)
-  end
-
   def are_in_the_same_side_as_origin?([origin, p1, p2]) do
     are_in_the_same_side_as_origin?(origin, p1, p2)
   end
@@ -159,4 +262,9 @@ defmodule MonitoringStation do
     # p1,p2,p0 are aligned
     (x1 - x0) * (x2 - x0) >= 0 and (y1 - y0) * (y2 - y0) >= 0
   end
+
+  def tg_a({x0, y0}, {x, y}) when x == x0 and y < y0, do: @infinite
+  def tg_a({x0, y0}, {x, y}) when x == x0 and y > y0, do: -@infinite
+
+  def tg_a({x0, y0}, {x, y}), do: (y0 - y) / (x - x0)
 end
