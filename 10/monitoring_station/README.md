@@ -5,7 +5,9 @@
 Execute `MonitoringStation.Day10_part1` in iex; the output is the solution for part 1
 => %{{22, 19} => 282}
 
-Execute `MonitoringStation.Day10_part2` in iex; the output is the solution for part 2
+Execute `MonitoringStation.Day10_part2` in iex; (or mix run) the output is the solution for part 2
+=> solution vaporized nth = 200: {10, 8}
+Enter 1008 in the solution box
 
 ## The puzzle
 

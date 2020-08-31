@@ -5,47 +5,7 @@ defmodule MonitoringStation do
   @infinite :math.pow(2, 100)
 
   def start(_start_type, _start_args) do
-    # __MODULE__.day10_part2()
-
-    map1 = """
-    ......#.#.
-    #..#.#....
-    ..#######.
-    .#.#.###..
-    .#..#.....
-    ..#....#.#
-    #..#....#.
-    .##.#..###
-    ##...#..#.
-    .#....####
-    """
-
-    map2 = """
-    .#..##.###...#######
-    ##.############..##.
-    .#.######.########.#
-    .###.#######.####.#.
-    #####.##.#.##.###.##
-    ..#####..#.#########
-    ####################
-    #.####....###.#.#.##
-    ##.#################
-    #####.##.###..####..
-    ..######..##.#######
-    ####.##.####...##..#
-    .#####..#.######.###
-    ##...#.##########...
-    #.##########.#######
-    .####.#.###.###.#.##
-    ....##.##.###..#####
-    .#.#.###########.###
-    #.#.#.#####.####.###
-    ###.##.####.##.#..##
-    """
-
-    map = map2
-
-    __MODULE__.day10_part2(map, 299)
+    __MODULE__.day10_part2()
     Supervisor.start_link([], strategy: :one_for_one)
   end
 
@@ -55,7 +15,7 @@ defmodule MonitoringStation do
   end
 
   def day10_part2 do
-    day10_part2(File.read!("puzzle_input.txt"))
+    day10_part2(File.read!("puzzle_input.txt"), 200)
   end
 
   def day10_part2(map, nth \\ 1) do
@@ -78,6 +38,40 @@ defmodule MonitoringStation do
     |> get_asteroids_from_space()
     |> find_alignements()
     |> order_by_distance()
+  end
+
+  # parses the map into an array
+  def parse_map_into_space(map) do
+    map
+    |> String.split("\n", trim: true)
+    |> Enum.map(&String.trim/1)
+    |> Enum.map(fn s -> String.split(s, "", trim: true) end)
+  end
+
+  # convert to set of asteroids's coordinates
+  def get_asteroids_from_space(space) do
+    for y <- 0..(Enum.count(space) - 1) do
+      for x <- 0..(Enum.count(Enum.at(space, 0)) - 1) do
+        if Enum.at(Enum.at(space, y), x) == "#" do
+          {x, y}
+        end
+      end
+      |> Enum.reject(&is_nil(&1))
+    end
+    |> List.flatten()
+  end
+
+  def find_alignements(asteroids) do
+    # returns a list of tuples like {origin, list of alignements (alignement is a list of aligned asteroids)}
+    Enum.flat_map(asteroids, fn p ->
+      aligned_asteroids(asteroids, p)
+    end)
+    |> Enum.uniq()
+    |> Enum.group_by(&List.first/1)
+    |> Map.to_list()
+    |> Enum.map(fn {p, alignements_of_p} ->
+      {p, Enum.map(alignements_of_p, fn line -> Enum.reject(line, fn x -> x == p end) end)}
+    end)
   end
 
   def order_by_distance(alignements) do
@@ -198,8 +192,16 @@ defmodule MonitoringStation do
   def remove_scan_from_scanner(_scanner = {origin, points}, _scan = {_p, alignements}) do
     scan_points = Enum.map(alignements, &Map.get(&1, :p))
 
+    # points = [[{19, 0}],[{0, 1}],[{12, 15}, {13, 17}],[{10, 11}, {9, 9}, {6, 3}, {5, 1}],...]
+    # scan_points -> [{11, 12},{12, 1},{12, 2},{12, 4},{12, 5},{12, 6},{13, 0},...]
+
     # => [{5, 3}, {6, 0}, {6, 2}, {6, 3}, {7, 2}, {8, 0}, {7, 3}]
-    remaining_points = Enum.reject(points, fn p -> Enum.find(scan_points, fn s -> s == p end) end)
+    remaining_points =
+      Enum.map(points, fn alignement ->
+        Enum.reject(alignement, fn p -> Enum.find(scan_points, fn s -> s == p end) end)
+      end)
+      |> Enum.reject(&Enum.empty?/1)
+
     {origin, remaining_points}
   end
 
@@ -207,72 +209,10 @@ defmodule MonitoringStation do
     abs(x - x0) + abs(y - y0)
   end
 
-  def run_scanner(map) when is_binary(map) do
-    process_map(map)
-    |> run_scanner
-  end
-
-  def run_scanner(all_visible) when is_list(all_visible) do
-    best = guess_best_place(all_visible)
-    visible = visible_at_best_place(all_visible, best)
-    order_for_scan(visible)
-  end
-
-  def vaporize(scanner_map) do
-    {_element, _scanner_map} = List.pop_at(scanner_map, 0)
-  end
-
   def find_best_location(array_of_scans) do
     {p, visible} = Enum.max_by(array_of_scans, fn {_p, visible} -> Enum.count(visible) end)
 
     %{p => Enum.count(visible)}
-  end
-
-  def order_for_scan([{origin = {x0, _y0}, visible}]) do
-    %{:g1 => g1, :g2 => g2, :g3 => g3, :g4 => g4} =
-      Enum.reduce(visible, %{:g1 => [], :g2 => [], :g3 => [], :g4 => []}, fn p = {x, _y},
-                                                                             %{
-                                                                               :g1 => g1,
-                                                                               :g2 => g2,
-                                                                               :g3 => g3,
-                                                                               :g4 => g4
-                                                                             } ->
-        tg_a = tg_a(origin, p)
-
-        [g1, g2, g3, g4] =
-          if tg_a > 0 do
-            if x >= x0,
-              do: [[%{:p => p, :tg => tg_a} | g1], g2, g3, g4],
-              else: [g1, g2, [%{:p => p, :tg => tg_a} | g3], g4]
-          else
-            if x >= x0,
-              do: [g1, [%{:p => p, :tg => tg_a} | g2], g3, g4],
-              else: [g1, g2, g3, [%{:p => p, :tg => tg_a} | g4]]
-          end
-          |> Enum.map(fn g -> Enum.sort_by(g, & &1.tg) |> Enum.reverse() end)
-
-        %{:g1 => g1, :g2 => g2, :g3 => g3, :g4 => g4}
-      end)
-
-    [[[g1 | g2] | g3] | g4]
-    |> List.flatten()
-  end
-
-  def best_location do
-    map = """
-    ......#.#.
-    #..#.#....
-    ..#######.
-    .#.#.###..
-    .#..#.....
-    ..#....#.#
-    #..#....#.
-    .##.#..###
-    ##...#..#.
-    .#....####
-    """
-
-    best_location(map)
   end
 
   def best_location(map) do
@@ -286,53 +226,11 @@ defmodule MonitoringStation do
     # ]
 
     asteroids = get_asteroids_from_space(space)
-    # |> IO.inspect(label: "asteroids")
-
     # [{1, 0}, {4, 0}, {0, 2}, {1, 2}, {2, 2}, {3, 2}, {4, 2}, {4, 3}, {3, 4}, {4, 4}]
 
     find_alignements(asteroids)
     |> order_by_distance()
     |> find_best_location
-    |> IO.inspect(label: "best location")
-  end
-
-  # parses the map into an array
-  def parse_map_into_space(map) do
-    map
-    |> String.split("\n", trim: true)
-    |> Enum.map(&String.trim/1)
-    |> Enum.map(fn s -> String.split(s, "", trim: true) end)
-  end
-
-  # convert to set of asteroids's coordinates
-  def get_asteroids_from_space(space) do
-    for y <- 0..(Enum.count(space) - 1) do
-      for x <- 0..(Enum.count(Enum.at(space, 0)) - 1) do
-        if Enum.at(Enum.at(space, y), x) == "#" do
-          {x, y}
-        end
-      end
-      |> Enum.reject(&is_nil(&1))
-    end
-    |> List.flatten()
-  end
-
-  def find_alignements(asteroids) do
-    # returns a list of tuples like {origin, list of alignements (alignement is a list of aligned asteroids)}
-    Enum.flat_map(asteroids, fn p ->
-      aligned_asteroids(asteroids, p)
-    end)
-    |> Enum.uniq()
-    |> Enum.group_by(&List.first/1)
-    |> Map.to_list()
-    |> Enum.map(fn {p, alignements_of_p} ->
-      {p, Enum.map(alignements_of_p, fn line -> Enum.reject(line, fn x -> x == p end) end)}
-    end)
-  end
-
-  @spec space_dimensions([any]) :: {non_neg_integer, non_neg_integer}
-  def space_dimensions(space) do
-    {Enum.count(List.first(space)), Enum.count(space)}
   end
 
   def aligned_asteroids(asteroids, origin = {x0, y0}) do
@@ -354,12 +252,6 @@ defmodule MonitoringStation do
     Enum.filter(asteroids -- [origin], fn _p = {x, y} ->
       !(x == x0) and (y - y0) / (x - x0) == dy / dx
     end)
-  end
-
-  def nearer([], _), do: nil
-
-  def nearer(aligned, _origin = {x0, y0}) do
-    Enum.min_by(aligned, fn {x, y} -> abs(x - x0) + abs(y - y0) end)
   end
 
   def are_in_the_same_side_as_origin?([origin, p1, p2]) do
